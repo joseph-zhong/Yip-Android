@@ -13,9 +13,15 @@ import org.jscience.mathematics.vector.Float64Vector;
  * Created by Joseph on 2/27/16.
  */
 public class CompassManager {
+    /** Data arrays for each sensor */
     public static float[] gravityVals;
     public static float[] geomagneticVals;
+
+    /** Heading Degree to north */
     public static float azimuth;
+
+    /** Current Orientation */
+    public static float currentDegree = 0f;
 
     private static final float ALPHA = 0.25f; // if ALPHA = 1 OR 0, no filter applies
 

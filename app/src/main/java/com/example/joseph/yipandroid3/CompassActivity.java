@@ -3,16 +3,21 @@ package com.example.joseph.yipandroid3;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.text.Editable;
+import android.text.Html;
+import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
@@ -22,17 +27,22 @@ import android.widget.AdapterView;
 import android.widget.MultiAutoCompleteTextView;
 import android.widget.ImageView;
 import android.widget.SimpleAdapter;
+import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.AutocompletePrediction;
+import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.PlaceBuffer;
 import com.google.android.gms.location.places.Places;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.pubnub.api.Callback;
@@ -54,7 +64,7 @@ import java.util.List;
 
 
 public class CompassActivity extends Activity implements SensorEventListener,
-        GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener {
+        GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
     /** Number used for UUID Generation */
     private static final int RANDOM_LARGE_NUMBER = 65535;
 
@@ -62,10 +72,10 @@ public class CompassActivity extends Activity implements SensorEventListener,
     private ImageView compass;
     private MultiAutoCompleteTextView multiAutoCompleteTextView;
 
-    private String[] locations;
+    private TextView mPlaceDetailsText;
+    private TextView mPlaceAttribution;
 
-    /** Current Compass Orientation */
-    private float currentDegree;
+    private String[] locations;
 
     /** Device Sensor Manager */
     private SensorManager mSensorManager;
@@ -107,12 +117,24 @@ public class CompassActivity extends Activity implements SensorEventListener,
         }
         this.compass = (ImageView) findViewById(R.id.compass);
 
+        // Retrieve the PlaceAutocompleteFragment.
+        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+
+        // Register a listener to receive callbacks when a place has been selected or an error has
+        // occurred.
+        autocompleteFragment.setOnPlaceSelectedListener(this);
+
+        // Retrieve the TextViews that will display details about the selected place.
+        mPlaceDetailsText = (TextView) findViewById(R.id.place_details);
+        mPlaceAttribution = (TextView) findViewById(R.id.place_attribution);
+
         this.multiAutoCompleteTextView = (MultiAutoCompleteTextView) findViewById(R.id.addressSearch);
         this.multiAutoCompleteTextView.setOnItemClickListener(mAutocompleteClickListener);
         this.multiAutoCompleteTextView.addTextChangedListener(onSearchAddressChange());
         this.multiAutoCompleteTextView.setAdapter(mAdapter);
 
-        currentDegree = 0f;
+
 
         if (extras != null) {
             lat = extras.getDouble("lat");
@@ -131,6 +153,46 @@ public class CompassActivity extends Activity implements SensorEventListener,
         }
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.buildGoogleApiClient();
+    }
+
+
+    /**
+     * Callback invoked when a place has been selected from the PlaceAutocompleteFragment.
+     */
+    @Override
+    public void onPlaceSelected(Place place) {
+        Log.i(this.getClass().getSimpleName(), "Place Selected: " + place.getName());
+
+        // Format the returned place's details and display them in the TextView.
+        mPlaceDetailsText.setText(formatPlaceDetails(getResources(), place.getName(), place.getId(),
+                place.getAddress(), place.getPhoneNumber(), place.getWebsiteUri()));
+
+        CharSequence attributions = place.getAttributions();
+        if (!TextUtils.isEmpty(attributions)) {
+            mPlaceAttribution.setText(Html.fromHtml(attributions.toString()));
+        } else {
+            mPlaceAttribution.setText("");
+        }
+    }
+
+    /**
+     * Callback invoked when PlaceAutocompleteFragment encounters an error.
+     */
+    @Override
+    public void onError(Status status) {
+        Log.e(this.getClass().getSimpleName(), "onError: Status = " + status.toString());
+    }
+
+    /**
+     * Helper method to format information about a place nicely.
+     */
+    private Spanned formatPlaceDetails(Resources res, CharSequence name, String id,
+                                       CharSequence address, CharSequence phoneNumber, Uri websiteUri) {
+        Log.e(this.getClass().getSimpleName(), res.getString(R.string.place_details, name, id, address, phoneNumber,
+                websiteUri));
+        return Html.fromHtml(res.getString(R.string.place_details, name, id, address, phoneNumber,
+                websiteUri));
+
     }
 
     /** Returns the place description corresponding to the selected item */
@@ -477,12 +539,12 @@ public class CompassActivity extends Activity implements SensorEventListener,
     private void update() {
         float direction = CompassManager.calculateDirection();
         // create a rotation animation (reverse turn degree degrees)
-        RotateAnimation ra = new RotateAnimation(currentDegree, -direction, Animation.RELATIVE_TO_SELF,
+        RotateAnimation ra = new RotateAnimation(CompassManager.currentDegree, -direction, Animation.RELATIVE_TO_SELF,
                 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
         ra.setDuration(210);
         ra.setFillAfter(true);
         compass.startAnimation(ra);
-        currentDegree = -direction;
+        CompassManager.currentDegree = -direction;
     }
 
     /**
