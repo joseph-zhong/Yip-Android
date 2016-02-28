@@ -6,6 +6,7 @@ import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
@@ -77,6 +78,9 @@ public class MainActivity extends Activity {
                 // send other location as extra
                 intent.putExtra("lat", lat);
                 intent.putExtra("lng", lng);
+                intent.putExtra("mode", App.YipType.ADDRESS_YIP);
+
+                Log.i(this.getClass().getSimpleName(), "Switching... lat: " + lat + ", lng: " + lng);
 
                 startActivity(intent);
             } catch (IOException e) {

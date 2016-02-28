@@ -2,20 +2,25 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Criteria;
 import android.location.Location;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.ImageView;
-import android.widget.TextView;
+import android.widget.SimpleCursorAdapter;
 
+import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
@@ -26,19 +31,37 @@ import com.pubnub.api.PubnubError;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class CompassActivity extends Activity implements SensorEventListener,
-        GoogleApiClient.ConnectionCallbacks, LocationListener {
 
-    // define the display assembly compass picture
+public class CompassActivity extends Activity implements SensorEventListener,
+        GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener {
+    /** Number used for UUID Generation */
+    private static final int RANDOM_LARGE_NUMBER = 65535;
+
+    /** Compass Image */
     private ImageView image;
 
-    // record the compass picture angle turned
-    private float currentDegree = 0f;
+    /** Current Compass Orientation */
+    private float currentDegree;
 
-    // device sensor manager
+    /** Device Sensor Manager */
     private SensorManager mSensorManager;
 
-//    TextView tvHeading;
+    /** Sensor Data */
+    private float[] mGravity;
+    private float[] mGeomagnetic;
+
+    /** Globals for Updating Compass */
+    private float azimuth;
+    private Location location;
+    private Location target;
+
+    /** Google API */
+    private GoogleApiClient mGoogleApiClient;
+
+    /** Randomly generated channelName */
+    private static String channelName;
+
+    private PubnubManager pubnubManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,30 +71,38 @@ public class CompassActivity extends Activity implements SensorEventListener,
         Bundle extras = getIntent().getExtras();
         double lat;
         double lng;
+        App.YipType type;
 
-        if (extras != null) {
+        if(extras != null) {
             lat = extras.getDouble("lat");
             lng = extras.getDouble("lng");
-            Log.i(this.getClass().getSimpleName(), "lat: " + lat + " lng: " + lng);
+            type = (App.YipType) extras.getSerializable("mode");
+            target = new Location("");
+            target.setLatitude(lat);
+            target.setLongitude(lng);
+            Log.i(this.getClass().getSimpleName(), "Target Location: " + lat + ", " + lng);
         }
 
+        /** init */
         image = (ImageView) findViewById(R.id.compass);
-
-
-        // TextView that will tell the user what degree is the heading
-//        tvHeading = (TextView) findViewById(R.id.tvHeading);
-
-        // initialize your android device sensor capabilities
+        currentDegree = 0f;
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        this.buildGoogleApiClient();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-
-        // for the system's orientation sensor registered listeners
-        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION),
-                SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(
+                this,
+                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_UI
+        );
+        mSensorManager.registerListener(
+                this,
+                mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_UI
+        );
     }
 
     @Override
@@ -83,32 +114,34 @@ public class CompassActivity extends Activity implements SensorEventListener,
     }
 
     @Override
+    protected void onStart() {
+        mGoogleApiClient.connect();
+        super.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        mGoogleApiClient.disconnect();
+        super.onStop();
+    }
+
+    @Override
     public void onSensorChanged(SensorEvent event) {
-
-        // get the angle around the z-axis rotated
-        float degree = Math.round(event.values[0]);
-
-        Log.i(this.getClass().getSimpleName(), "Heading: " + Float.toString(degree) + " degrees");
-//        tvHeading.setText("Heading: " + Float.toString(degree) + " degrees");
-
-        // create a rotation animation (reverse turn degree degrees)
-        RotateAnimation ra = new RotateAnimation(
-                currentDegree,
-                -degree,
-                Animation.RELATIVE_TO_SELF, 0.5f,
-                Animation.RELATIVE_TO_SELF,
-                0.5f);
-
-        // how long the animation will take place
-        ra.setDuration(210);
-
-        // set the animation after the end of the reservation status
-        ra.setFillAfter(true);
-
-        // Start the animation
-        image.startAnimation(ra);
-        currentDegree = -degree;
-
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
+            this.mGravity = event.values;
+        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
+            this.mGeomagnetic = event.values;
+        if (this.mGravity != null && this.mGeomagnetic != null) {
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R, I, this.mGravity, this.mGeomagnetic);
+            if (success) {
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                this.azimuth = orientation[0]; // orientation contains: azimut, pitch and roll
+            }
+        }
+        update();
     }
 
     @Override
@@ -116,26 +149,20 @@ public class CompassActivity extends Activity implements SensorEventListener,
         // not in use
     }
 
-
-    /** Number used for UUID Generation */
-    private static final int RANDOM_LARGE_NUMBER = 65535;
-
-    /** Google API */
-    private GoogleApiClient mGoogleApiClient;
-
-    /** Randomly generated channelName */
-    private static String channelName;
-
-    private PubnubManager pubnubManager;
-
+    /** Helper method to initialize Google API Client for Location Services */
     private synchronized void buildGoogleApiClient() {
-        mGoogleApiClient = new GoogleApiClient.Builder(this)
-                .addConnectionCallbacks(this).addApi(LocationServices.API)
-                .build();
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
+        }
     }
 
     @Override
     public void onConnected(Bundle connectionHint) {
+        Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
         LocationRequest mLocationRequest = createLocationRequest();
         if (ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
@@ -150,7 +177,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
             // for ActivityCompat#requestPermissions for more details.
             return;
         }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, (LocationListener) this);
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
@@ -158,11 +185,16 @@ public class CompassActivity extends Activity implements SensorEventListener,
         Log.d(this.getClass().getSimpleName(), "Connection to Google API suspended");
     }
 
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Log.e(this.getClass().getSimpleName(), "Error in connecting Google API");
+    }
+
     /** Create Location Request */
     private LocationRequest createLocationRequest() {
         LocationRequest mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(1000);
-        mLocationRequest.setFastestInterval(500);
+        mLocationRequest.setInterval(10000);
+        mLocationRequest.setFastestInterval(5000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         return mLocationRequest;
     }
@@ -170,7 +202,35 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Location Changed Handler */
     public void onLocationChanged(Location location) {
-        broadcastLocation(location);
+//        broadcastLocation(location);
+        this.location = location;
+    }
+
+    /**
+     * Update the Compass orientation based on sensor changes
+     * todo: see if location changes should update
+     * pre: Location, Target, and Azimuth must be set */
+    private void update() {
+        if(this.location == null || this.target == null) {
+            return;
+        }
+        float newAzimuth = (float) Math.toDegrees((double) this.azimuth);
+        GeomagneticField geoField = new GeomagneticField(
+                (float) this.location.getLatitude(),
+                (float) this.location.getLongitude(),
+                (float) this.location.getAltitude(),
+                System.currentTimeMillis());
+        newAzimuth += geoField.getDeclination(); // converts magnetic north into true north
+        float bearing = this.location.bearingTo(this.target);
+        float direction = newAzimuth - bearing;
+
+        // create a rotation animation (reverse turn degree degrees)
+        RotateAnimation ra = new RotateAnimation(currentDegree, -direction, Animation.RELATIVE_TO_SELF,
+                0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
+        ra.setDuration(210);
+        ra.setFillAfter(true);
+        image.startAnimation(ra);
+        currentDegree = -direction;
     }
 
     /**

@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">yipAndroid3</string>
+    <string name="compass_descript">Compass Pointer</string>
 </resources>
