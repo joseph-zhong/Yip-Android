@@ -1,5 +1,7 @@
 package com.example.joseph.yipandroid3;
 
+import android.hardware.GeomagneticField;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.support.v7.app.AppCompatActivity;
 
@@ -11,6 +13,29 @@ import org.jscience.mathematics.vector.Float64Vector;
  * Created by Joseph on 2/27/16.
  */
 public class CompassManager {
+    public static float[] gravityVals;
+    public static float[] geomagneticVals;
+    public static float azimuth;
+
+    private static final float ALPHA = 0.25f; // if ALPHA = 1 OR 0, no filter applies
+
+    public static float calculateDirection() {
+        GeomagneticField geoField = new GeomagneticField(
+                (float) LocationService.currentLocation.getLatitude(),
+                (float) LocationService.currentLocation.getLongitude(),
+                (float) LocationService.currentLocation.getAltitude(),
+                System.currentTimeMillis());
+        calculateAzimuth();
+        float newAzimuth = (float) Math.toDegrees((double) CompassManager.azimuth);
+        newAzimuth += geoField.getDeclination(); // converts magnetic north into true north
+        float bearing = LocationService.currentLocation.bearingTo(LocationService.targetLocation);
+        return newAzimuth - bearing;
+    }
+
+    public static boolean isReady() {
+        return CompassManager.gravityVals != null && CompassManager.geomagneticVals != null;
+    }
+
     /** Yip Types */
     private enum YipType {
         REMEMBERED_LOCATION_YIP, ADDRESS_YIP, TWO_USERS_YIP
@@ -31,12 +56,6 @@ public class CompassManager {
     /** User's most recent heading, in degrees */
     double userHeading;
 
-    /** Vector from user's location to friend's location
-     * @param userHeading
-     * @param anchorLocation
-     * @param initialAnchorLocation */
-
-    /** */
     Float64Vector anchorVector;
 
     /** Radians for delta theta */
@@ -68,7 +87,7 @@ public class CompassManager {
 
     private App.CompassStatus COMPASS_STATUS;
 
-    LocationManager locationManager;
+    LocationService locationManager;
 
     /** main manager */
     private PubnubManager pubnubManager;
@@ -88,8 +107,34 @@ public class CompassManager {
         this.sentFirstLocation = false;
         this.terminated = false;
 
-        this.locationManager = new LocationManager((AppCompatActivity) App.activity);
+        this.locationManager = new LocationService((AppCompatActivity) App.activity);
         this.pubnubManager = new PubnubManager();
+    }
+
+    /** Calculates Azimuth */
+    public static void calculateAzimuth() {
+        float R[] = new float[9];
+        float I[] = new float[9];
+        boolean success = SensorManager.getRotationMatrix(R, I, CompassManager.gravityVals, CompassManager.geomagneticVals);
+        if (success) {
+            float orientation[] = new float[3];
+            SensorManager.getOrientation(R, orientation);
+            CompassManager.azimuth = orientation[0]; // orientation contains: azimuth, pitch and roll
+        }
+    }
+
+    /**
+     * Lowpass Filter
+     * @param input
+     * @param output
+     * @return
+     */
+    protected static float[] lowPass(float[] input, float[] output) {
+        if(output == null) return input;
+        for(int i = 0; i < input.length; i++) {
+            output[i] = output[i] + ALPHA * (input[i] - output[i]);
+        }
+        return output;
     }
 
     /**
@@ -180,65 +225,4 @@ public class CompassManager {
         Float64Matrix m = Float64Matrix.valueOf(v1, v2);
         return m.determinant();
     }
-
-//------------------------------------------Data Stream--------------------------------------------------
-//    func stream(statusChanged on: Bool) {
-//    }
-//
-//    func stream(connected success: Bool) {
-//        if success {
-//            if userLocation != nil {
-//                streamManager.sendLocation(userLocation!)
-//            }
-//        }
-//    }
-//
-//    func stream(friendConnected success: Bool) {
-//        if success {
-//            print("Friend connected.")
-//
-//            if userLocation != nil {
-//                streamManager.sendLocation(userLocation!)
-//            }
-//
-//            // We haven't received a location yet, so we are the only "ready" member in the channel
-//            if initialAnchorLocation == nil {
-//                updateStatus(.WaitingForFriend)
-//            }
-//        }
-//    }
-//
-//    func stream(friendDisconnected success: Bool) {
-//        if success {
-//            print("Friend disconnected.")
-//        }
-//    }
-//
-//    func stream(friendTimedOut success: Bool) {
-//        if success {
-//            print("Friend timed out")
-//        }
-//    }
-//
-//    func stream(locationReceived location: CLLocation) {
-//        print("Received new location.")
-//        if anchorLocation == nil {
-//            initialAnchorLocation = location
-//
-////            if initialUserLocation != nil {
-////                updateStatus(.READY)
-////            }
-//        }
-//
-//        // Save location to class
-//        anchorLocation = location
-//
-//        if userLocation != nil && anchorLocation != nil {
-//            // Compute new anchor vector and save to class
-//            anchorVector = calculatePositionVector(userLocation!, anchorPosition: location)
-//
-//            // Compute new theta
-//            calculateTheta(anchorVector, heading: userHeading)
-//        }
-//    }
 }

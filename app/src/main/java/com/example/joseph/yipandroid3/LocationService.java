@@ -8,6 +8,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -20,7 +21,7 @@ import com.google.android.gms.location.LocationServices;
  * Updated by Joseph on 12/19/15.
  *
  *  */
-public class LocationManager extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
+public class LocationService extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
     /** Request code for approving location permissions */
     public static final int REQUEST_LOCATION = 2;
@@ -40,10 +41,14 @@ public class LocationManager extends AppCompatActivity implements GoogleApiClien
     /** Other user's most recent location*/
     private Location oMostRecentLoc;
 
+    /** Globals for Updating Compass */
+    public static Location targetLocation;
+    public static Location currentLocation;
+
     /**
      * Constructor
-     * @param activity The activity that's accessing the LocationManager */
-    public LocationManager(AppCompatActivity activity) {
+     * @param activity The activity that's accessing the LocationService */
+    public LocationService(AppCompatActivity activity) {
         this.activity = activity;
         this.googleApiClient = new GoogleApiClient.Builder(activity)
                 .addConnectionCallbacks(this)
@@ -65,12 +70,27 @@ public class LocationManager extends AppCompatActivity implements GoogleApiClien
             this.requestLocPermissions();
         }
         this.mostRecentLoc = LocationServices.FusedLocationApi.getLastLocation(this.googleApiClient);
-        return this.getMostRecentLoc();
+        return getMostRecentLoc();
     }
 
-    /** @return the most recently saved Location */
-    public Location getMostRecentLoc() {
-        return this.mostRecentLoc;
+    /** @return the most recently saved Location
+     * pre: Location must be set */
+    public static Location getMostRecentLoc() {
+        if(hasCurrentLocation()) {
+            return currentLocation;
+        }
+        String errorMessage = "Current Location not set yet...";
+        Log.e("LocationService", errorMessage);
+//      throw new IllegalStateException(errorMessage);
+        return null;
+    }
+
+    public static boolean hasCurrentLocation() {
+        return currentLocation != null;
+    }
+
+    public static boolean isReady() {
+        return LocationService.currentLocation != null && LocationService.targetLocation != null;
     }
 
     /** Starts Location Updating service */
@@ -80,6 +100,15 @@ public class LocationManager extends AppCompatActivity implements GoogleApiClien
             this.requestLocPermissions();
         }
         LocationServices.FusedLocationApi.requestLocationUpdates(this.googleApiClient, this.locationRequest, this);
+    }
+
+    /** Create Location Request */
+    public static LocationRequest createLocationRequest() {
+        LocationRequest mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(10000);
+        mLocationRequest.setFastestInterval(5000);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        return mLocationRequest;
     }
 
     /** Stops Location Updating service */

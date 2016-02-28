@@ -2,34 +2,55 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.location.Criteria;
 import android.location.Location;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
+import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
+import android.widget.AdapterView;
+import android.widget.MultiAutoCompleteTextView;
 import android.widget.ImageView;
-import android.widget.SimpleCursorAdapter;
+import android.widget.SimpleAdapter;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.AutocompletePrediction;
+import com.google.android.gms.location.places.PlaceBuffer;
+import com.google.android.gms.location.places.Places;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.pubnub.api.Callback;
 import com.pubnub.api.PubnubError;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.util.HashMap;
+import java.util.List;
 
 
 public class CompassActivity extends Activity implements SensorEventListener,
@@ -37,8 +58,11 @@ public class CompassActivity extends Activity implements SensorEventListener,
     /** Number used for UUID Generation */
     private static final int RANDOM_LARGE_NUMBER = 65535;
 
-    /** Compass Image */
-    private ImageView image;
+    /** Layout Elements */
+    private ImageView compass;
+    private MultiAutoCompleteTextView multiAutoCompleteTextView;
+
+    private String[] locations;
 
     /** Current Compass Orientation */
     private float currentDegree;
@@ -46,21 +70,15 @@ public class CompassActivity extends Activity implements SensorEventListener,
     /** Device Sensor Manager */
     private SensorManager mSensorManager;
 
-    /** Sensor Data */
-    private float[] mGravity;
-    private float[] mGeomagnetic;
-
-    /** Globals for Updating Compass */
-    private float azimuth;
-    private Location location;
-    private Location target;
-
     /** Google API */
     private GoogleApiClient mGoogleApiClient;
+    private PlaceAutocompleteAdapter mAdapter;
+    PlacesTask placesTask;
+    ParserTask parserTask;
 
+    // todo: pubnub streaming
     /** Randomly generated channelName */
     private static String channelName;
-
     private PubnubManager pubnubManager;
 
     @Override
@@ -73,43 +91,310 @@ public class CompassActivity extends Activity implements SensorEventListener,
         double lng;
         App.YipType type;
 
-        if(extras != null) {
+        /** init */
+        locations = new String[5];
+        if(LocationService.hasCurrentLocation()) {
+            mAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient, new LatLngBounds(
+                    new LatLng(LocationService.currentLocation.getLatitude() - 30, LocationService.currentLocation.getLongitude() - 30),
+                    new LatLng(LocationService.currentLocation.getLatitude() + 30, LocationService.currentLocation.getLongitude() + 30)
+            ), null);
+        }
+        else {
+            mAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient, new LatLngBounds(
+                    new LatLng(0, 0),
+                    new LatLng(100, 100)
+            ), null);
+        }
+        this.compass = (ImageView) findViewById(R.id.compass);
+
+        this.multiAutoCompleteTextView = (MultiAutoCompleteTextView) findViewById(R.id.addressSearch);
+        this.multiAutoCompleteTextView.setOnItemClickListener(mAutocompleteClickListener);
+        this.multiAutoCompleteTextView.addTextChangedListener(onSearchAddressChange());
+        this.multiAutoCompleteTextView.setAdapter(mAdapter);
+
+        currentDegree = 0f;
+
+        if (extras != null) {
             lat = extras.getDouble("lat");
             lng = extras.getDouble("lng");
             type = (App.YipType) extras.getSerializable("mode");
-            target = new Location("");
-            target.setLatitude(lat);
-            target.setLongitude(lng);
+
+            if (type != App.YipType.ADDRESS_YIP) {
+                this.multiAutoCompleteTextView.setVisibility(View.INVISIBLE);
+            }
+
+            LocationService.targetLocation = new Location("");
+            LocationService.targetLocation.setLatitude(lat);
+            LocationService.targetLocation.setLongitude(lng);
+
             Log.i(this.getClass().getSimpleName(), "Target Location: " + lat + ", " + lng);
         }
-
-        /** init */
-        image = (ImageView) findViewById(R.id.compass);
-        currentDegree = 0f;
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.buildGoogleApiClient();
     }
 
+    /** Returns the place description corresponding to the selected item */
+    protected CharSequence convertSelectionToString(Object selectedItem) {
+        /** Each item in the autocompetetextview suggestion list is a hashmap object */
+        HashMap<String, String> hm = (HashMap<String, String>) selectedItem;
+        return hm.get("description");
+    }
+
+    /** Initialize Google API Client
+     * Adds Location Services API
+     * Adds Places API */
+    private synchronized void buildGoogleApiClient() {
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .addApi(Places.GEO_DATA_API)
+                    .build();
+        }
+    }
+
+    private AdapterView.OnItemClickListener onItemClickListener() {
+        return new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                String description = (String) parent.getItemAtPosition(position);
+                // search...
+            }
+        };
+    }
+
+    private TextWatcher onSearchAddressChange() {
+        return new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // do nothing
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                placesTask = new PlacesTask();
+                placesTask.execute(s.toString());
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                // do nothing
+            }
+        };
+    }
+
+    /** A method to download json data from url */
+    private String downloadUrl(String strUrl) throws IOException {
+        String data = "";
+        InputStream iStream = null;
+        HttpURLConnection urlConnection = null;
+        try{
+            URL url = new URL(strUrl);
+
+            // Creating an http connection to communicate with url
+            urlConnection = (HttpURLConnection) url.openConnection();
+
+            // Connecting to url
+            urlConnection.connect();
+
+            // Reading data from url
+            iStream = urlConnection.getInputStream();
+
+            BufferedReader br = new BufferedReader(new InputStreamReader(iStream));
+
+            StringBuffer sb = new StringBuffer();
+
+            String line = "";
+            while( ( line = br.readLine()) != null){
+                sb.append(line);
+            }
+
+            data = sb.toString();
+
+            br.close();
+
+        }
+        catch(Exception e){
+            Log.e(this.getClass().getSimpleName(), "Exception while downloading url:" + e.toString());
+        }
+        finally{
+            iStream.close();
+            urlConnection.disconnect();
+        }
+        return data;
+    }
+
+    // Fetches all places from GooglePlaces AutoComplete Web Service
+    private class PlacesTask extends AsyncTask<String, Void, String>{
+
+        @Override
+        protected String doInBackground(String... place) {
+            // For storing data from web service
+            String data = "";
+
+            // Obtain browser key from https://code.google.com/apis/console
+            String key = "key=AIzaSyDRv4boxFuC4TIF8H-tGOUYJbylvUoB-qM";
+
+            String input="";
+
+            try {
+                input = "input=" + URLEncoder.encode(place[0], "utf-8");
+            } catch (UnsupportedEncodingException e1) {
+                e1.printStackTrace();
+            }
+
+            // place type to be searched
+            String types = "types=geocode";
+
+            // Sensor enabled
+            String sensor = "sensor=false";
+
+            // Building the parameters to the web service
+            String parameters = input+"&"+types+"&"+sensor+"&"+key;
+
+            // Output format
+            String output = "json";
+
+            // Building the url to the web service
+            String url = "https://maps.googleapis.com/maps/api/place/autocomplete/"+output+"?"+parameters;
+
+            try{
+                // Fetching the data from we service
+                data = downloadUrl(url);
+            }catch(Exception e){
+                Log.d("Background Task",e.toString());
+            }
+            return data;
+        }
+
+        @Override
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+
+            // Creating ParserTask
+            parserTask = new ParserTask();
+
+            // Starting Parsing the JSON string returned by Web Service
+            parserTask.execute(result);
+        }
+    }
+    /** A class to parse the Google Places in JSON format */
+    private class ParserTask extends AsyncTask<String, Integer, List<HashMap<String,String>>> {
+
+        JSONObject jObject;
+
+        @Override
+        protected List<HashMap<String, String>> doInBackground(String... jsonData) {
+
+            List<HashMap<String, String>> places = null;
+
+            PlaceJSONParser placeJsonParser = new PlaceJSONParser();
+
+            try{
+                jObject = new JSONObject(jsonData[0]);
+
+                // Getting the parsed data as a List construct
+                places = placeJsonParser.parse(jObject);
+
+            }catch(Exception e){
+                Log.d("Exception",e.toString());
+            }
+            return places;
+        }
+
+        @Override
+        protected void onPostExecute(List<HashMap<String, String>> result) {
+
+            String[] from = new String[] { "description"};
+            int[] to = new int[] { android.R.id.text1 };
+
+            // Creating a SimpleAdapter for the AutoCompleteTextView
+            SimpleAdapter adapter = new SimpleAdapter(getBaseContext(), result, android.R.layout.simple_list_item_1, from, to);
+
+            // Setting the adapter
+            multiAutoCompleteTextView.setAdapter(adapter);
+        }
+    }
+
+    /**
+     * Listener that handles selections from suggestions from the multiAutoCompleteTextView that
+     * displays Place suggestions.
+     * Gets the place id of the selected item and issues a request to the Places Geo Data API
+     * to retrieve more details about the place.
+     *
+     * @see com.google.android.gms.location.places.GeoDataApi#getPlaceById(com.google.android.gms.common.api.GoogleApiClient,
+     * String...)
+     */
+    private AdapterView.OnItemClickListener mAutocompleteClickListener
+            = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            /*
+             Retrieve the place ID of the selected item from the Adapter.
+             The adapter stores each Place suggestion in a AutocompletePrediction from which we
+             read the place ID and title.
+              */
+            final AutocompletePrediction item = mAdapter.getItem(position);
+            final String placeId = item.getPlaceId();
+            final CharSequence primaryText = item.getPrimaryText(null);
+
+            Log.i(this.getClass().getSimpleName(), "Autocomplete item selected: " + primaryText);
+
+            /*
+             Issue a request to the Places Geo Data API to retrieve a Place object with additional
+             details about the place.
+              */
+            PendingResult<PlaceBuffer> placeResult = Places.GeoDataApi.getPlaceById(mGoogleApiClient, placeId);
+            placeResult.setResultCallback(mUpdatePlaceDetailsCallback);
+
+            Log.i(this.getClass().getSimpleName(), "Called getPlaceById to get Place details for " + placeId);
+        }
+    };
+
+    /**
+     * Callback for results from a Places Geo Data API query that shows the first place result in
+     * the details view on screen.
+     */
+    private ResultCallback<PlaceBuffer> mUpdatePlaceDetailsCallback
+            = new ResultCallback<PlaceBuffer>() {
+        @Override
+        public void onResult(PlaceBuffer places) {
+            if (!places.getStatus().isSuccess()) {
+                // Request did not complete successfully
+                Log.e(this.getClass().getSimpleName(), "Place query did not complete. Error: " + places.getStatus().toString());
+                places.release();
+                return;
+            }
+            for (int i = 0; i < 5; i++) {
+                if (i < places.getCount()) {
+                    locations[i] = String.valueOf(places.get(i).getAddress());
+                } else {
+                    break;
+                }
+            }
+            places.release();
+        }
+    };
+
     @Override
-    protected void onResume() {
-        super.onResume();
-        mSensorManager.registerListener(
-                this,
-                mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-                SensorManager.SENSOR_DELAY_UI
-        );
-        mSensorManager.registerListener(
-                this,
-                mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
-                SensorManager.SENSOR_DELAY_UI
-        );
+    protected void onResume () {
+            super.onResume();
+            mSensorManager.registerListener(
+                    this,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                    SensorManager.SENSOR_DELAY_UI
+            );
+            mSensorManager.registerListener(
+                    this,
+                    mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                    SensorManager.SENSOR_DELAY_UI
+            );
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-
-        // to stop the listener and save battery
         mSensorManager.unregisterListener(this);
     }
 
@@ -126,22 +411,19 @@ public class CompassActivity extends Activity implements SensorEventListener,
     }
 
     @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+
+    @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            this.mGravity = event.values;
+            CompassManager.gravityVals = CompassManager.lowPass(event.values.clone(), CompassManager.gravityVals);
         if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            this.mGeomagnetic = event.values;
-        if (this.mGravity != null && this.mGeomagnetic != null) {
-            float R[] = new float[9];
-            float I[] = new float[9];
-            boolean success = SensorManager.getRotationMatrix(R, I, this.mGravity, this.mGeomagnetic);
-            if (success) {
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R, orientation);
-                this.azimuth = orientation[0]; // orientation contains: azimut, pitch and roll
-            }
+            CompassManager.geomagneticVals = CompassManager.lowPass(event.values.clone(), CompassManager.geomagneticVals);
+        if (CompassManager.isReady() && LocationService.isReady()) {
+            update();
         }
-        update();
     }
 
     @Override
@@ -149,21 +431,12 @@ public class CompassActivity extends Activity implements SensorEventListener,
         // not in use
     }
 
-    /** Helper method to initialize Google API Client for Location Services */
-    private synchronized void buildGoogleApiClient() {
-        if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(this)
-                    .addConnectionCallbacks(this)
-                    .addOnConnectionFailedListener(this)
-                    .addApi(LocationServices.API)
-                    .build();
-        }
-    }
+
 
     @Override
     public void onConnected(Bundle connectionHint) {
         Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
-        LocationRequest mLocationRequest = createLocationRequest();
+        LocationRequest mLocationRequest = LocationService.createLocationRequest();
         if (ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
@@ -190,46 +463,25 @@ public class CompassActivity extends Activity implements SensorEventListener,
         Log.e(this.getClass().getSimpleName(), "Error in connecting Google API");
     }
 
-    /** Create Location Request */
-    private LocationRequest createLocationRequest() {
-        LocationRequest mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(10000);
-        mLocationRequest.setFastestInterval(5000);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        return mLocationRequest;
-    }
-
     @Override
     /** Location Changed Handler */
     public void onLocationChanged(Location location) {
 //        broadcastLocation(location);
-        this.location = location;
+        LocationService.currentLocation = location;
+        Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude() + ", " + location.getLongitude());
     }
 
     /**
      * Update the Compass orientation based on sensor changes
-     * todo: see if location changes should update
      * pre: Location, Target, and Azimuth must be set */
     private void update() {
-        if(this.location == null || this.target == null) {
-            return;
-        }
-        float newAzimuth = (float) Math.toDegrees((double) this.azimuth);
-        GeomagneticField geoField = new GeomagneticField(
-                (float) this.location.getLatitude(),
-                (float) this.location.getLongitude(),
-                (float) this.location.getAltitude(),
-                System.currentTimeMillis());
-        newAzimuth += geoField.getDeclination(); // converts magnetic north into true north
-        float bearing = this.location.bearingTo(this.target);
-        float direction = newAzimuth - bearing;
-
+        float direction = CompassManager.calculateDirection();
         // create a rotation animation (reverse turn degree degrees)
         RotateAnimation ra = new RotateAnimation(currentDegree, -direction, Animation.RELATIVE_TO_SELF,
                 0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
         ra.setDuration(210);
         ra.setFillAfter(true);
-        image.startAnimation(ra);
+        compass.startAnimation(ra);
         currentDegree = -direction;
     }
 

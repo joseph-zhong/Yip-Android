@@ -1,20 +1,28 @@
 package com.example.joseph.yipandroid3;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
-import android.location.Address;
-import android.location.Geocoder;
-import android.location.Location;
+import android.content.pm.PackageManager;
+import android.location.*;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.Places;
+
 import java.io.IOException;
 import java.util.List;
-import java.util.Locale;
 
 import static java.util.Locale.*;
+
 
 /**
  * This is the main activity class for the Yip App
@@ -31,7 +39,9 @@ import static java.util.Locale.*;
  * When the user taps Yip an Address, the app will open
  *
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener {
+    private GoogleApiClient mGoogleApiClient;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,6 +55,18 @@ public class MainActivity extends Activity {
 
         Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
         rememberLocationBtn.setOnClickListener(rememberLocation);
+    }
+
+    /** Initialize Google API Client
+     * Adds Location Services API */
+    private synchronized void buildGoogleApiClient() {
+        if (mGoogleApiClient == null) {
+            mGoogleApiClient = new GoogleApiClient.Builder(this)
+                    .addConnectionCallbacks(this)
+                    .addOnConnectionFailedListener(this)
+                    .addApi(LocationServices.API)
+                    .build();
+        }
     }
 
     // Create an anonymous implementation of OnClickListener
@@ -66,7 +88,7 @@ public class MainActivity extends Activity {
         public void onClick(View v) {
             Intent intent = new Intent(v.getContext(), CompassActivity.class);
 
-            // search target location
+            // search targetLocation location
             Geocoder geocoder = new Geocoder(v.getContext(), getDefault());
             List<Address> addresses = null;
             try {
@@ -90,4 +112,52 @@ public class MainActivity extends Activity {
     };
 
 
+    @Override
+    public void onConnected(Bundle bundle) {
+        Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
+        LocationRequest mLocationRequest = LocationService.createLocationRequest();
+        if (ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Call ActivityCompat#requestPermissions
+            // to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            return;
+        }
+        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest,
+                (com.google.android.gms.location.LocationListener) this);
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.d(this.getClass().getSimpleName(), "Connection to Google API suspended");
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        Log.i(this.getClass().getSimpleName(), "Location set!");
+        LocationService.currentLocation = location;
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+        // do nothing
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+        // do nothing
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+        // do nothing
+    }
+
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+        Log.e(this.getClass().getSimpleName(), "Error in connecting Google API");
+    }
 }
