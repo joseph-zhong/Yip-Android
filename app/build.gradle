@@ -27,4 +27,5 @@ dependencies {
     compile 'com.pubnub:pubnub-android:3.7.5'
     compile 'com.google.android.gms:play-services-location:8.4.0'
     compile 'com.android.support:cardview-v7:23.+'
+    compile 'io.branch.sdk.android:library:1.+'
 }

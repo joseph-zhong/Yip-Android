@@ -11,17 +11,12 @@ import android.support.v4.app.ActivityCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.places.Places;
-
-import java.io.IOException;
-import java.util.List;
-
-import static java.util.Locale.*;
 
 
 /**
@@ -48,17 +43,18 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        App.currentContext = this.getApplicationContext();
 
         buildGoogleApiClient();
 
         Button yipAFriendBtn = (Button) findViewById(R.id.yipAFriend);
-        yipAFriendBtn.setOnClickListener(yipAFriend);
+        yipAFriendBtn.setOnClickListener(yipAFriendListener);
 
         Button yipAnAddressBtn = (Button) findViewById(R.id.yipAnAddress);
-        yipAnAddressBtn.setOnClickListener(yipAnAddress);
+        yipAnAddressBtn.setOnClickListener(yipAnAddressListener);
 
         Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
-        rememberLocationBtn.setOnClickListener(rememberLocation);
+        rememberLocationBtn.setOnClickListener(rememberLocationListener);
     }
 
     /** Initialize Google API Client
@@ -74,23 +70,44 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     }
 
     /** Select Yip A Friend Mode */
-    private View.OnClickListener yipAFriend = new View.OnClickListener() {
+    private View.OnClickListener yipAFriendListener = new View.OnClickListener() {
         public void onClick(View v) {
-            Intent intent = new Intent(v.getContext(), ContactsPickerActivity.class);
-            intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
-            startActivity(intent);
+            startActivityForResult(new Intent(getApplicationContext(), ContactsPickerActivity.class), 200);
         }
     };
 
+    /** Activity Result Listener to catch return data */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // This is the standard resultCode that is sent back if the
+        // activity crashed or didn't doesn't supply an explicit result.
+        if (resultCode == RESULT_CANCELED){
+            Toast.makeText(this, "No contact selected", Toast.LENGTH_SHORT).show();
+        }
+        else {
+            String contact = (String) data.getExtras().get(ContactsPickerActivity.KEY_CONTACT_NAME);
+            String number = (String) data.getExtras().get(ContactsPickerActivity.KEY_PHONE_NUMBER);
+            Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
+
+            // todo: SMS send
+            SmsService.sendSMS(number, "hello test");
+
+            Intent intent = new Intent(getApplicationContext(), CompassActivity.class);
+            intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
+
+            startActivity(intent);
+        }
+    }
+
     /** Select Set Location Mode */
-    private View.OnClickListener rememberLocation = new View.OnClickListener() {
+    private View.OnClickListener rememberLocationListener = new View.OnClickListener() {
         public void onClick(View v) {
 
         }
     };
 
     /** Select Yip an Address Mode */
-    private View.OnClickListener yipAnAddress = new View.OnClickListener() {
+    private View.OnClickListener yipAnAddressListener = new View.OnClickListener() {
         public void onClick(View v) {
             Intent intent = new Intent(v.getContext(), CompassActivity.class);
             intent.putExtra("mode", App.YipType.ADDRESS_YIP);

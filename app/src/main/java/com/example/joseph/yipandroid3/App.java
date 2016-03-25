@@ -2,6 +2,7 @@ package com.example.joseph.yipandroid3;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.content.res.Configuration;
 import android.location.Location;
 
@@ -12,6 +13,9 @@ import com.pubnub.api.Pubnub;
  *
  * This class extends Android's base Application class to allow us to keep track of important globals */
 public class App extends Application {
+    /** Track the Context */
+    public static Context currentContext;
+
     /** Yip Types */
     public enum YipType {
         REMEMBERED_LOCATION_YIP,
