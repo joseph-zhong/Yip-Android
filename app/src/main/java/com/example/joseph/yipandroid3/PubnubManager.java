@@ -15,6 +15,9 @@ import org.json.JSONObject;
  * Created by Joseph on 2/27/16.
  */
 public class PubnubManager {
+    /** Number used for UUID Generation */
+    private static final int RANDOM_LARGE_NUMBER = 65535;
+
     /** Global Pubnub client */
     public static Pubnub client = new Pubnub("pub-c-1b3b7682-6fc8-40f4-b51f-d10e79987840",
             "sub-c-0df608f6-5430-11e5-85f6-0619f8945a4f");;
@@ -145,5 +148,20 @@ public class PubnubManager {
                         + error.getErrorString());
             }
         };
+    }
+
+    /** Generate a random channel name. */ // TODO: Make this better lol
+    private static String randomChannelName() {
+        String channelName = "";
+        for(int i = 0; i < 5; i++) {
+            channelName += genMajorMinor();
+        }
+        // fixme: return new BigInteger(130, new SecureRandom()).toString(32);
+        return channelName;
+    }
+
+    /** Generate a random major and minor. */
+    private static int genMajorMinor() {
+        return (int) (Math.random() * RANDOM_LARGE_NUMBER) + 1;
     }
 }

@@ -58,9 +58,6 @@ import static java.util.Locale.getDefault;
  */
 public class CompassActivity extends Activity implements SensorEventListener,
         GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
-    /** Number used for UUID Generation */
-    private static final int RANDOM_LARGE_NUMBER = 65535;
-
     /** Layout Elements */
     private ImageView compass;
 
@@ -303,20 +300,5 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 Log.e("PUBNUB", error.toString());
             }
         };
-    }
-
-    /** Generate a random channel name. */ // TODO: Make this better lol
-    private String randomChannelName() {
-        String channelName = "";
-        for(int i = 0; i < 5; i++) {
-            channelName += genMajorMinor();
-        }
-        // fixme: return new BigInteger(130, new SecureRandom()).toString(32);
-        return channelName;
-    }
-
-    /** Generate a random major and minor. */
-    private int genMajorMinor() {
-        return (int) (Math.random() * RANDOM_LARGE_NUMBER) + 1;
     }
 }
