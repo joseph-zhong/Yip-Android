@@ -99,7 +99,7 @@ public class CompassManager {
     private boolean terminated;
 
     /** Calculates Azimuth */
-    public static void calculateAzimuth() {
+    private static void calculateAzimuth() {
         float R[] = new float[9];
         float I[] = new float[9];
         boolean success = SensorManager.getRotationMatrix(R, I, CompassManager.gravityVals, CompassManager.geomagneticVals);
@@ -137,10 +137,6 @@ public class CompassManager {
         this.COMPASS_STATUS = compassStatus;
     }
 
-
-
-//------------------------------------------Vector Math--------------------------------------------------
-
     /**
      * Calculates Position Vector from User to Other location
      * @param userLoc Location of the current user
@@ -176,8 +172,6 @@ public class CompassManager {
         Float64 dotProduct = uAnchorVector.times(uHeadingVector);
         Float64 determinant = determinant(uAnchorVector, uHeadingVector);
 
-        // todo: integration with delta
-        // todo: also see if PID looping is relevant here
         return Math.atan2(determinant.doubleValue(), dotProduct.doubleValue());
     }
 

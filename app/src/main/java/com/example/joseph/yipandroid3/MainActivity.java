@@ -49,6 +49,8 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        buildGoogleApiClient();
+
         Button yipAFriendBtn = (Button) findViewById(R.id.yipAFriend);
         yipAFriendBtn.setOnClickListener(yipAFriend);
 
@@ -74,7 +76,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     /** Select Yip A Friend Mode */
     private View.OnClickListener yipAFriend = new View.OnClickListener() {
         public void onClick(View v) {
-            Intent intent = new Intent(v.getContext(), CompassActivity.class);
+            Intent intent = new Intent(v.getContext(), ContactsPickerActivity.class);
             intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
             startActivity(intent);
         }

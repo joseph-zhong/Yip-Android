@@ -67,10 +67,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
     /** Google API */
     private GoogleApiClient mGoogleApiClient;
 
-    // todo: pubnub streaming
-    /** Randomly generated channelName */
-    private static String channelName;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,12 +76,8 @@ public class CompassActivity extends Activity implements SensorEventListener,
         Bundle extras = getIntent().getExtras();
         this.compass = (ImageView) findViewById(R.id.compass);
         if (extras != null) {
-            double lat;
-            double lng;
             App.YipType type;
 
-            lat = extras.getDouble("lat");
-            lng = extras.getDouble("lng");
             type = (App.YipType) extras.getSerializable("mode");
 
             if (type == App.YipType.ADDRESS_YIP) {
@@ -93,6 +85,13 @@ public class CompassActivity extends Activity implements SensorEventListener,
                         getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
                 autocompleteFragment.setOnPlaceSelectedListener(this);
             }
+            else if(type == App.YipType.TWO_USERS_YIP) {
+
+            }
+            else {
+
+            }
+
 
         }
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -280,7 +279,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         } catch (JSONException e) {
             Log.e(this.getClass().getSimpleName(), e.toString());
         }
-        PubnubManager.client.publish(channelName, message, this.publishCallback());
+        PubnubManager.client.publish(PubnubManager.CHANNEL_NAME, message, this.publishCallback());
     }
 
     /**

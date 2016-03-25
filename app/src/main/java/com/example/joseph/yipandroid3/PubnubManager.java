@@ -29,7 +29,7 @@ public class PubnubManager {
     private static boolean isConnected;
 
     /** Channel Name connected */
-    private static String CHANNEL_NAME = "joseph-reported";
+    public static String CHANNEL_NAME = "joseph-reported";
 
     /** @return boolean whether location has been received */
     public static boolean hasReceivedLoc() {
