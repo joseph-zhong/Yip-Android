@@ -105,8 +105,8 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     /** Create Location Request */
     public static LocationRequest createLocationRequest() {
         LocationRequest mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(10000);
-        mLocationRequest.setFastestInterval(5000);
+        mLocationRequest.setInterval(1000);
+//        mLocationRequest.setFastestInterval(5000);
         mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
         return mLocationRequest;
     }
@@ -155,5 +155,12 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
 
     public void setOMostRecentLoc(Location l) {
         this.oMostRecentLoc = l;
+    }
+
+    public static void setTargetLocation(double lat, double lng) {
+        Location l = new Location("");
+        l.setLatitude(lat);
+        l.setLongitude(lng);
+        targetLocation = l;
     }
 }

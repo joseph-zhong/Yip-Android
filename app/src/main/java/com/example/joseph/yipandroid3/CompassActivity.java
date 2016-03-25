@@ -2,67 +2,60 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.Application;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
-import android.text.Editable;
 import android.text.Html;
 import android.text.Spanned;
 import android.text.TextUtils;
-import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.AdapterView;
-import android.widget.MultiAutoCompleteTextView;
 import android.widget.ImageView;
-import android.widget.SimpleAdapter;
 import android.widget.TextView;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.location.places.AutocompletePrediction;
 import com.google.android.gms.location.places.Place;
-import com.google.android.gms.location.places.PlaceBuffer;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
-import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.pubnub.api.Callback;
 import com.pubnub.api.PubnubError;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.List;
 
+import static java.util.Locale.getDefault;
 
+/**
+ * This activity is the main Compass Activity that handles the general user interaction in Yipping
+ * various targets.
+ *
+ *
+ *
+ */
 public class CompassActivity extends Activity implements SensorEventListener,
         GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
     /** Number used for UUID Generation */
@@ -70,21 +63,12 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     /** Layout Elements */
     private ImageView compass;
-    private MultiAutoCompleteTextView multiAutoCompleteTextView;
-
-    private TextView mPlaceDetailsText;
-    private TextView mPlaceAttribution;
-
-    private String[] locations;
 
     /** Device Sensor Manager */
     private SensorManager mSensorManager;
 
     /** Google API */
     private GoogleApiClient mGoogleApiClient;
-    private PlaceAutocompleteAdapter mAdapter;
-    PlacesTask placesTask;
-    ParserTask parserTask;
 
     // todo: pubnub streaming
     /** Randomly generated channelName */
@@ -96,60 +80,24 @@ public class CompassActivity extends Activity implements SensorEventListener,
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
 
+        // init
         Bundle extras = getIntent().getExtras();
-        double lat;
-        double lng;
-        App.YipType type;
-
-        /** init */
-        locations = new String[5];
-        if(LocationService.hasCurrentLocation()) {
-            mAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient, new LatLngBounds(
-                    new LatLng(LocationService.currentLocation.getLatitude() - 30, LocationService.currentLocation.getLongitude() - 30),
-                    new LatLng(LocationService.currentLocation.getLatitude() + 30, LocationService.currentLocation.getLongitude() + 30)
-            ), null);
-        }
-        else {
-            mAdapter = new PlaceAutocompleteAdapter(this, mGoogleApiClient, new LatLngBounds(
-                    new LatLng(0, 0),
-                    new LatLng(100, 100)
-            ), null);
-        }
         this.compass = (ImageView) findViewById(R.id.compass);
-
-        // Retrieve the PlaceAutocompleteFragment.
-        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
-                getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
-
-        // Register a listener to receive callbacks when a place has been selected or an error has
-        // occurred.
-        autocompleteFragment.setOnPlaceSelectedListener(this);
-
-        // Retrieve the TextViews that will display details about the selected place.
-        mPlaceDetailsText = (TextView) findViewById(R.id.place_details);
-        mPlaceAttribution = (TextView) findViewById(R.id.place_attribution);
-
-        this.multiAutoCompleteTextView = (MultiAutoCompleteTextView) findViewById(R.id.addressSearch);
-        this.multiAutoCompleteTextView.setOnItemClickListener(mAutocompleteClickListener);
-        this.multiAutoCompleteTextView.addTextChangedListener(onSearchAddressChange());
-        this.multiAutoCompleteTextView.setAdapter(mAdapter);
-
-
-
         if (extras != null) {
+            double lat;
+            double lng;
+            App.YipType type;
+
             lat = extras.getDouble("lat");
             lng = extras.getDouble("lng");
             type = (App.YipType) extras.getSerializable("mode");
 
-            if (type != App.YipType.ADDRESS_YIP) {
-                this.multiAutoCompleteTextView.setVisibility(View.INVISIBLE);
+            if (type == App.YipType.ADDRESS_YIP) {
+                PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+                        getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+                autocompleteFragment.setOnPlaceSelectedListener(this);
             }
 
-            LocationService.targetLocation = new Location("");
-            LocationService.targetLocation.setLatitude(lat);
-            LocationService.targetLocation.setLongitude(lng);
-
-            Log.i(this.getClass().getSimpleName(), "Target Location: " + lat + ", " + lng);
         }
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.buildGoogleApiClient();
@@ -158,20 +106,26 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     /**
      * Callback invoked when a place has been selected from the PlaceAutocompleteFragment.
+     * @param place Place object of the user selected suggestion
+     *              Contains Name, Id, Address, Phone #, and Website
      */
     @Override
     public void onPlaceSelected(Place place) {
-        Log.i(this.getClass().getSimpleName(), "Place Selected: " + place.getName());
+        Log.i(this.getClass().getSimpleName(), "Address Selected: " + place.getName() + " -- Located at "
+                + place.getAddress());
 
-        // Format the returned place's details and display them in the TextView.
-        mPlaceDetailsText.setText(formatPlaceDetails(getResources(), place.getName(), place.getId(),
-                place.getAddress(), place.getPhoneNumber(), place.getWebsiteUri()));
+        // search targetLocation location
+        Geocoder geocoder = new Geocoder(this.getApplicationContext(), getDefault());
+        List<Address> addresses = null;
+        try {
+            addresses = geocoder.getFromLocationName(place.getAddress().toString(), 1);
+            Double lat = addresses.get(0).getLatitude();
+            Double lng = addresses.get(0).getLongitude();
 
-        CharSequence attributions = place.getAttributions();
-        if (!TextUtils.isEmpty(attributions)) {
-            mPlaceAttribution.setText(Html.fromHtml(attributions.toString()));
-        } else {
-            mPlaceAttribution.setText("");
+
+            LocationService.setTargetLocation(lat, lng);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -181,25 +135,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     public void onError(Status status) {
         Log.e(this.getClass().getSimpleName(), "onError: Status = " + status.toString());
-    }
-
-    /**
-     * Helper method to format information about a place nicely.
-     */
-    private Spanned formatPlaceDetails(Resources res, CharSequence name, String id,
-                                       CharSequence address, CharSequence phoneNumber, Uri websiteUri) {
-        Log.e(this.getClass().getSimpleName(), res.getString(R.string.place_details, name, id, address, phoneNumber,
-                websiteUri));
-        return Html.fromHtml(res.getString(R.string.place_details, name, id, address, phoneNumber,
-                websiteUri));
-
-    }
-
-    /** Returns the place description corresponding to the selected item */
-    protected CharSequence convertSelectionToString(Object selectedItem) {
-        /** Each item in the autocompetetextview suggestion list is a hashmap object */
-        HashMap<String, String> hm = (HashMap<String, String>) selectedItem;
-        return hm.get("description");
     }
 
     /** Initialize Google API Client
@@ -225,219 +160,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
             }
         };
     }
-
-    private TextWatcher onSearchAddressChange() {
-        return new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-                // do nothing
-            }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                placesTask = new PlacesTask();
-                placesTask.execute(s.toString());
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                // do nothing
-            }
-        };
-    }
-
-    /** A method to download json data from url */
-    private String downloadUrl(String strUrl) throws IOException {
-        String data = "";
-        InputStream iStream = null;
-        HttpURLConnection urlConnection = null;
-        try{
-            URL url = new URL(strUrl);
-
-            // Creating an http connection to communicate with url
-            urlConnection = (HttpURLConnection) url.openConnection();
-
-            // Connecting to url
-            urlConnection.connect();
-
-            // Reading data from url
-            iStream = urlConnection.getInputStream();
-
-            BufferedReader br = new BufferedReader(new InputStreamReader(iStream));
-
-            StringBuffer sb = new StringBuffer();
-
-            String line = "";
-            while( ( line = br.readLine()) != null){
-                sb.append(line);
-            }
-
-            data = sb.toString();
-
-            br.close();
-
-        }
-        catch(Exception e){
-            Log.e(this.getClass().getSimpleName(), "Exception while downloading url:" + e.toString());
-        }
-        finally{
-            iStream.close();
-            urlConnection.disconnect();
-        }
-        return data;
-    }
-
-    // Fetches all places from GooglePlaces AutoComplete Web Service
-    private class PlacesTask extends AsyncTask<String, Void, String>{
-
-        @Override
-        protected String doInBackground(String... place) {
-            // For storing data from web service
-            String data = "";
-
-            // Obtain browser key from https://code.google.com/apis/console
-            String key = "key=AIzaSyDRv4boxFuC4TIF8H-tGOUYJbylvUoB-qM";
-
-            String input="";
-
-            try {
-                input = "input=" + URLEncoder.encode(place[0], "utf-8");
-            } catch (UnsupportedEncodingException e1) {
-                e1.printStackTrace();
-            }
-
-            // place type to be searched
-            String types = "types=geocode";
-
-            // Sensor enabled
-            String sensor = "sensor=false";
-
-            // Building the parameters to the web service
-            String parameters = input+"&"+types+"&"+sensor+"&"+key;
-
-            // Output format
-            String output = "json";
-
-            // Building the url to the web service
-            String url = "https://maps.googleapis.com/maps/api/place/autocomplete/"+output+"?"+parameters;
-
-            try{
-                // Fetching the data from we service
-                data = downloadUrl(url);
-            }catch(Exception e){
-                Log.d("Background Task",e.toString());
-            }
-            return data;
-        }
-
-        @Override
-        protected void onPostExecute(String result) {
-            super.onPostExecute(result);
-
-            // Creating ParserTask
-            parserTask = new ParserTask();
-
-            // Starting Parsing the JSON string returned by Web Service
-            parserTask.execute(result);
-        }
-    }
-    /** A class to parse the Google Places in JSON format */
-    private class ParserTask extends AsyncTask<String, Integer, List<HashMap<String,String>>> {
-
-        JSONObject jObject;
-
-        @Override
-        protected List<HashMap<String, String>> doInBackground(String... jsonData) {
-
-            List<HashMap<String, String>> places = null;
-
-            PlaceJSONParser placeJsonParser = new PlaceJSONParser();
-
-            try{
-                jObject = new JSONObject(jsonData[0]);
-
-                // Getting the parsed data as a List construct
-                places = placeJsonParser.parse(jObject);
-
-            }catch(Exception e){
-                Log.d("Exception",e.toString());
-            }
-            return places;
-        }
-
-        @Override
-        protected void onPostExecute(List<HashMap<String, String>> result) {
-
-            String[] from = new String[] { "description"};
-            int[] to = new int[] { android.R.id.text1 };
-
-            // Creating a SimpleAdapter for the AutoCompleteTextView
-            SimpleAdapter adapter = new SimpleAdapter(getBaseContext(), result, android.R.layout.simple_list_item_1, from, to);
-
-            // Setting the adapter
-            multiAutoCompleteTextView.setAdapter(adapter);
-        }
-    }
-
-    /**
-     * Listener that handles selections from suggestions from the multiAutoCompleteTextView that
-     * displays Place suggestions.
-     * Gets the place id of the selected item and issues a request to the Places Geo Data API
-     * to retrieve more details about the place.
-     *
-     * @see com.google.android.gms.location.places.GeoDataApi#getPlaceById(com.google.android.gms.common.api.GoogleApiClient,
-     * String...)
-     */
-    private AdapterView.OnItemClickListener mAutocompleteClickListener
-            = new AdapterView.OnItemClickListener() {
-        @Override
-        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-            /*
-             Retrieve the place ID of the selected item from the Adapter.
-             The adapter stores each Place suggestion in a AutocompletePrediction from which we
-             read the place ID and title.
-              */
-            final AutocompletePrediction item = mAdapter.getItem(position);
-            final String placeId = item.getPlaceId();
-            final CharSequence primaryText = item.getPrimaryText(null);
-
-            Log.i(this.getClass().getSimpleName(), "Autocomplete item selected: " + primaryText);
-
-            /*
-             Issue a request to the Places Geo Data API to retrieve a Place object with additional
-             details about the place.
-              */
-            PendingResult<PlaceBuffer> placeResult = Places.GeoDataApi.getPlaceById(mGoogleApiClient, placeId);
-            placeResult.setResultCallback(mUpdatePlaceDetailsCallback);
-
-            Log.i(this.getClass().getSimpleName(), "Called getPlaceById to get Place details for " + placeId);
-        }
-    };
-
-    /**
-     * Callback for results from a Places Geo Data API query that shows the first place result in
-     * the details view on screen.
-     */
-    private ResultCallback<PlaceBuffer> mUpdatePlaceDetailsCallback
-            = new ResultCallback<PlaceBuffer>() {
-        @Override
-        public void onResult(PlaceBuffer places) {
-            if (!places.getStatus().isSuccess()) {
-                // Request did not complete successfully
-                Log.e(this.getClass().getSimpleName(), "Place query did not complete. Error: " + places.getStatus().toString());
-                places.release();
-                return;
-            }
-            for (int i = 0; i < 5; i++) {
-                if (i < places.getCount()) {
-                    locations[i] = String.valueOf(places.get(i).getAddress());
-                } else {
-                    break;
-                }
-            }
-            places.release();
-        }
-    };
 
     @Override
     protected void onResume () {

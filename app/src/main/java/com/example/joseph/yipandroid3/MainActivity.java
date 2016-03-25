@@ -39,7 +39,9 @@ import static java.util.Locale.*;
  * When the user taps Yip an Address, the app will open
  *
  */
-public class MainActivity extends Activity implements GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends Activity implements GoogleApiClient.ConnectionCallbacks, LocationListener,
+        GoogleApiClient.OnConnectionFailedListener {
+    /** API Client */
     private GoogleApiClient mGoogleApiClient;
 
     @Override
@@ -108,27 +110,8 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     private View.OnClickListener yipAnAddress = new View.OnClickListener() {
         public void onClick(View v) {
             Intent intent = new Intent(v.getContext(), CompassActivity.class);
-
-            // search targetLocation location
-            Geocoder geocoder = new Geocoder(v.getContext(), getDefault());
-            List<Address> addresses = null;
-            try {
-                addresses = geocoder.getFromLocationName("United States", 1);
-
-                Double lat = (double) (addresses.get(0).getLatitude());
-                Double lng = (double) (addresses.get(0).getLongitude());
-
-                // send other location as extra
-                intent.putExtra("lat", lat);
-                intent.putExtra("lng", lng);
-                intent.putExtra("mode", App.YipType.ADDRESS_YIP);
-
-                Log.i(this.getClass().getSimpleName(), "Switching... lat: " + lat + ", lng: " + lng);
-
-                startActivity(intent);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            intent.putExtra("mode", App.YipType.ADDRESS_YIP);
+            startActivity(intent);
         }
     };
 
