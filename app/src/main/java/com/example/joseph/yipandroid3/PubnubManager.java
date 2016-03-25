@@ -16,38 +16,31 @@ import org.json.JSONObject;
  */
 public class PubnubManager {
     /** Global Pubnub client */
-    public Pubnub client;
+    public static Pubnub client = new Pubnub("pub-c-1b3b7682-6fc8-40f4-b51f-d10e79987840",
+            "sub-c-0df608f6-5430-11e5-85f6-0619f8945a4f");;
 
     /** Our received location */
-    private Location receivedLoc;
+    private static Location receivedLoc;
 
     /** Boolean tracking connection */
-    private boolean isConnected;
+    private static boolean isConnected;
 
     /** Channel Name connected */
-    private String CHANNEL_NAME;
-
-    /** Constructor */
-    public PubnubManager() {
-        /* Instantiate Pubnub on app startup */
-        client = new Pubnub("pub-c-1b3b7682-6fc8-40f4-b51f-d10e79987840", "sub-c-0df608f6-5430-11e5-85f6-0619f8945a4f");
-        App.pubnub = client;
-    }
+    private static String CHANNEL_NAME = "joseph-reported";
 
     /** @return boolean whether location has been received */
-    public boolean hasReceivedLoc() {
+    public static boolean hasReceivedLoc() {
         return receivedLoc != null;
     }
 
     /** @return Location received */
-    public Location getReceivedLoc() {
+    public static Location getReceivedLoc() {
         return receivedLoc;
     }
 
-    /**
-     * Joins Specified Channel
+    /** Joins Specified Channel
      * @param channelName Channel Name to join */
-    public void joinChannel(String channelName) {
+    public static void joinChannel(String channelName) {
         try {
             client.subscribe(channelName, subscribeCallback());
         }
@@ -57,15 +50,14 @@ public class PubnubManager {
     }
 
     /** Helper method to unsubscribe */
-    public void terminate() {
+    public static void terminate() {
         client.unsubscribeAllChannels();
     }
 
-    /**
-     * Method to send location across channel
+    /** Method to send location across channel
      * @param location
      * @throws JSONException */
-    public void sendLocation(Location location) throws JSONException {
+    public static void sendLocation(Location location) throws JSONException {
         String uuid = client.uuid();
 
         JSONObject obj = new JSONObject();
@@ -82,14 +74,14 @@ public class PubnubManager {
      * Success:
      * Error:
      * @return a S/E Callback */
-    private Callback publishCallback() {
+    private static Callback publishCallback() {
         return new Callback() {
             public void successCallback(String channel, Object message) {
                 Log.i(PubnubManager.class.getSimpleName(), "Successful publish to " + channel);
                 // todo: send success...
             }
             public void errorCallback(String channel, PubnubError error) {
-                Log.e(PubnubManager.class.getSimpleName(), "Error pubblish to " + channel + " "
+                Log.e(PubnubManager.class.getSimpleName(), "Error publish to " + channel + " "
                         + error.getErrorString());
                 // todo: send error ...
             }
@@ -104,10 +96,9 @@ public class PubnubManager {
      * Success: Records location data received
      * Error: Logs
      * @return a S/E Callback */
-    private Callback subscribeCallback() {
+    private static Callback subscribeCallback() {
         return new Callback() {
             @Override
-            /** Handles Connection */
             public void connectCallback(String channel, Object message) {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : CONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
@@ -115,7 +106,6 @@ public class PubnubManager {
             }
 
             @Override
-            /** Handles Disconnection */
             public void disconnectCallback(String channel, Object message) {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : DISCONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
@@ -123,7 +113,6 @@ public class PubnubManager {
             }
 
             @Override
-            /** Handles Reconnection */
             public void reconnectCallback(String channel, Object message) {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : RECONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
@@ -131,7 +120,6 @@ public class PubnubManager {
             }
 
             @Override
-            /** Handles Disconnection */
             public void successCallback(String channel, Object message) {
                 JSONObject json;
                 try {

@@ -73,7 +73,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
     // todo: pubnub streaming
     /** Randomly generated channelName */
     private static String channelName;
-    private PubnubManager pubnubManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -284,7 +283,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         } catch (JSONException e) {
             Log.e(this.getClass().getSimpleName(), e.toString());
         }
-        pubnubManager.client.publish(channelName, message, this.publishCallback());
+        PubnubManager.client.publish(channelName, message, this.publishCallback());
     }
 
     /**

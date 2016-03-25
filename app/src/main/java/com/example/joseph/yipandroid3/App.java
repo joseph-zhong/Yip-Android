@@ -9,16 +9,9 @@ import com.pubnub.api.Pubnub;
 
 /**
  * Created by Joseph on 12/19/15.
- * Updated by Joseph on 12/19/15.
  *
  * This class extends Android's base Application class to allow us to keep track of important globals */
 public class App extends Application {
-    /** Global Pubnub client */
-    public static Pubnub pubnub;
-
-    /**  */
-    public static Activity activity;
-
     /** Yip Types */
     public enum YipType {
         REMEMBERED_LOCATION_YIP,

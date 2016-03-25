@@ -95,27 +95,8 @@ public class CompassManager {
 
     LocationService locationManager;
 
-    /** main manager */
-    private PubnubManager pubnubManager;
-
     private boolean sentFirstLocation;
     private boolean terminated;
-
-    /** Constructor */
-    public CompassManager(double userHeading, Location anchorLocation, Location initialAnchorLocation) {
-        this.obtainedInitialAnchorLocation = false;
-        this.obtainedInitialUserLocation = false;
-        this.calculatedInitialDistanceBetween = false;
-
-        this.userHeading = userHeading;
-        this.anchorLocation = anchorLocation;
-        this.initialAnchorLocation = initialAnchorLocation;
-        this.sentFirstLocation = false;
-        this.terminated = false;
-
-        this.locationManager = new LocationService((AppCompatActivity) App.activity);
-        this.pubnubManager = new PubnubManager();
-    }
 
     /** Calculates Azimuth */
     public static void calculateAzimuth() {
@@ -151,25 +132,12 @@ public class CompassManager {
         anchorLocation = loc;
     }
 
-    /**
-     * Helper method to join Yip Channel */
-    private void joinYipChannel(String channel) {
-        YIP_CHANNEL = channel;
-        this.pubnubManager.joinChannel(YIP_CHANNEL);
-    }
-
     /** Updates the current connection status and alerts delegate if status has changed. */
     private void updateStatus(App.CompassStatus compassStatus) {
         this.COMPASS_STATUS = compassStatus;
     }
 
-    /** Terminates the instance of CompassLogic. Delegate updates will be stopped. */
-    public void terminate() {
-        if (YIP_TYPE == YipType.TWO_USERS_YIP) {
-            pubnubManager.terminate();
-            pubnubManager = null;
-        }
-    }
+
 
 //------------------------------------------Vector Math--------------------------------------------------
 
