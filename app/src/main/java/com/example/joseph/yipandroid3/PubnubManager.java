@@ -46,7 +46,7 @@ public class PubnubManager {
      * @param channelName Channel Name to join */
     public static void joinChannel(Pubnub client, String channelName) {
         try {
-            client.subscribe(channelName, subscribeCallback());
+            client.subscribe(channelName, subscribeCallback(client));
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -57,7 +57,7 @@ public class PubnubManager {
     public static void joinChannel(Pubnub client) {
         try {
 //            client.subscribe(randomChannelName(), subscribeCallback());
-            client.subscribe(currentChannelName, subscribeCallback());
+            client.subscribe(currentChannelName, subscribeCallback(client));
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -98,16 +98,14 @@ public class PubnubManager {
      * Success:
      * Error:
      * @return a S/E Callback */
-    private static Callback publishCallback() {
+    public static Callback publishCallback() {
         return new Callback() {
             public void successCallback(String channel, Object message) {
                 Log.i(PubnubManager.class.getSimpleName(), "Successful publish to " + channel);
-                // todo: send success...
             }
             public void errorCallback(String channel, PubnubError error) {
                 Log.e(PubnubManager.class.getSimpleName(), "Error publish to " + channel + " "
                         + error.getErrorString());
-                // todo: send error ...
             }
         };
     }
@@ -120,14 +118,14 @@ public class PubnubManager {
      * Success: Records location data received
      * Error: Logs
      * @return a S/E Callback */
-    public static Callback subscribeCallback() {
+    public static Callback subscribeCallback(final Pubnub client) {
         return new Callback() {
             @Override
             public void connectCallback(String channel, Object message) {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : CONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
-                isConnected = true;
+                PubnubManager.isConnected = true;
             }
 
             @Override
@@ -135,7 +133,7 @@ public class PubnubManager {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : DISCONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
-                isConnected = false;
+                PubnubManager.isConnected = false;
             }
 
             @Override
@@ -147,18 +145,20 @@ public class PubnubManager {
 
             @Override
             public void successCallback(String channel, Object message) {
-                JSONObject json;
                 try {
-                    json = new JSONObject(message.toString());
+                    JSONObject json = new JSONObject(message.toString());
                     Log.i(getClass().getSimpleName(), "Received message: " + json);
-                    double lat = json.getDouble("lat");
-                    double lng = json.getDouble("lng");
-                    double alt = json.getDouble("alt");
-                    Location loc = new Location("");
-                    loc.setLatitude(lat);
-                    loc.setLongitude(lng);
-                    loc.setAltitude(alt);
-                    receivedLoc = loc;
+                    String uuid = json.getString("uuid");
+                    if (uuid.equals(client.uuid())) {
+                        double lat = json.getDouble("lat");
+                        double lng = json.getDouble("lng");
+                        double alt = json.getDouble("alt");
+                        Location loc = new Location("");
+                        loc.setLatitude(lat);
+                        loc.setLongitude(lng);
+                        loc.setAltitude(alt);
+                        LocationService.targetLocation = loc;
+                    }
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
