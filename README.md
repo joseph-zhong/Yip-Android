@@ -21,7 +21,7 @@ Note:
 - Compass (Completed)
 - Range Indicator (Not started)
 - yip an Address (Completed)
-- PubNub (Started)
+- PubNub (Testing)
 - yip a friend data transaction (started)
-
+- Branch (Started)
 
