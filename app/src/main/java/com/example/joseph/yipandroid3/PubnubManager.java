@@ -27,6 +27,10 @@ public class PubnubManager {
     /** Channel Name connected */
     private static String currentChannelName;
 
+    /** */
+    public static String uuid;
+
+    /** Public initializer */
     public static Pubnub init() {
         return new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
                 App.currentContext.getString(R.string.pubnub_subscribe_key));

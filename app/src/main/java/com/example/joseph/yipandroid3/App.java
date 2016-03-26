@@ -8,6 +8,8 @@ import android.location.Location;
 
 import com.pubnub.api.Pubnub;
 
+import io.branch.referral.Branch;
+
 /**
  * Created by Joseph on 12/19/15.
  *
@@ -48,6 +50,7 @@ public class App extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        Branch.getAutoInstance(this);
     }
 
     @Override

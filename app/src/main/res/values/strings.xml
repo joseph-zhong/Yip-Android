@@ -4,4 +4,6 @@
     <string name="AddressSearch">Search an Address</string>
     <string name="label_search">Search</string>
     <string name="label_multiple_numbers">Multiple numbers</string>
+    <string name="uri_host">comexamplejosephyipandroid3.com</string>
+    <string name="uri_scheme">http</string>
 </resources>

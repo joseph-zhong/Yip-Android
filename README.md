@@ -24,4 +24,4 @@ Note:
 - PubNub (Testing)
 - yip a friend data transaction (started)
 - Branch (Started)
-
+- launcher activity

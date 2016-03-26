@@ -2,10 +2,14 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.*;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.Telephony;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
@@ -17,8 +21,17 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.pubnub.api.PubnubUtil;
 
 import org.json.JSONException;
+import org.json.JSONObject;
+
+import io.branch.indexing.BranchUniversalObject;
+import io.branch.referral.Branch;
+import io.branch.referral.BranchError;
+import io.branch.referral.SharingHelper;
+import io.branch.referral.util.LinkProperties;
+import io.branch.referral.util.ShareSheetStyle;
 
 
 /**
@@ -91,13 +104,42 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
             String number = (String) data.getExtras().get(ContactsPickerActivity.KEY_PHONE_NUMBER);
             Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
 
-            // todo: SMS send
-//            SmsService.sendSMS(number, "hello test");
+            sendSMSHelper();
+
             Intent intent = new Intent(getApplicationContext(), CompassActivity.class);
             intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
 
             startActivity(intent);
         }
+    }
+
+    /**
+     * Helper to create the custom
+     */
+    private void sendSMSHelper() {
+        BranchUniversalObject branchUniversalObject = new BranchUniversalObject()
+                .setCanonicalIdentifier(PubnubManager.getCurrentChannelName())
+                .setTitle("Yip me!")
+                .setContentDescription("Request to Yip")
+                .addContentMetadata("channel_name", PubnubManager.getCurrentChannelName())
+                .addContentMetadata("uuid", PubnubManager.uuid);
+
+        LinkProperties linkProperties = new LinkProperties()
+                .setChannel("sms")
+                .setFeature("sharing");
+
+        branchUniversalObject.generateShortUrl(this, linkProperties, new Branch.BranchLinkCreateListener() {
+            @Override
+            public void onLinkCreate(String url, BranchError error) {
+                if (error == null) {
+                    Log.i("MyApp", "got my Branch link to share: " + url);
+                    // todo: test SMS send
+//                    SmsService.sendSMS("4256287248", "Yip Me! \n " + getString(R.string.uri_scheme) + "://"
+//                            + getString(R.string.uri_host));
+                    SmsService.sendSMS("4256287248", "Yip me! \n " + url);
+                }
+            }
+        });
     }
 
     /** Select Set Location Mode */
@@ -164,5 +206,63 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     @Override
     public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
         Log.e(this.getClass().getSimpleName(), "Error in connecting Google API");
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+
+        /**
+         * Deep link via push notif
+         */
+//        Intent resultIntent = new Intent(this, TargetClass.class);
+//        intent.putExtra("branch","http://bnc.lt/testlink");
+//        PendingIntent resultPendingIntent =  PendingIntent.getActivity(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+
+        Branch branch = Branch.getInstance();
+        branch.initSession(new Branch.BranchReferralInitListener() {
+            @Override
+            public void onInitFinished(JSONObject referringParams, BranchError error) {
+                if (error == null) {
+                    // params are the deep linked params associated with the link that the user clicked before showing up
+                    Log.i("BranchConfigTest", "deep link data: " + referringParams.toString());
+                }
+            }
+        }, this.getIntent().getData(), this);
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        this.setIntent(intent);
+    }
+
+
+    /**
+     * Install DeepLink Listener
+     */
+    public class InstallListener extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String rawReferrerString = intent.getStringExtra("referrer");   // use this for channelName?
+            if(rawReferrerString != null) {
+                Log.i("MyApp", "Received the following intent " + rawReferrerString);
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (Branch.isAutoDeepLinkLaunch(this)) {
+            try {
+                String channelName = Branch.getInstance().getLatestReferringParams().getString("channel_name");
+                Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + channelName);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        } else {
+            Log.i(this.getClass().getSimpleName(), "Launched by normal application flow");
+        }
     }
 }
