@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="branch_id">241972930739720878</string>
-    <string name="branch_key_live">key_live_nfn7tvU1HNVAnsNChZxVkflkqDaTKO2R</string>
-    <string name="branch_key_test">key_test_mjmXqtJ4IJKDmDMDd7xTdbkdqwnNST8s</string>
-    <string name="pubnub_publish_key">pub-c-070e965a-06c7-4dc1-84c5-4cf0d2a587ea</string>
-    <string name="pubnub_subscribe_key">sub-c-d9379cc0-a358-11e4-8d94-0619f8945a4f</string>
-</resources>

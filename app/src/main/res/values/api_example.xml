@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="branch_id_example">BRANCH_APP_ID</string>
+    <string name="branch_key_live_example">BRANCH_LIVE_KEY</string>
+    <string name="branch_key_test_example">BRANCH_TEST_KEY</string>
+    <string name="pubnub_publish_key_example">PUBNUB_PUBLISH_KEY</string>
+    <string name="pubnub_subscribe_key_example">PUBNUB_SUBSCRIBE_KEY</string>
+    <string name="google_geo_key_example">GOOGLE_GEO_KEY</string>
+</resources>

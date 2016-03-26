@@ -34,7 +34,7 @@
         <activity android:name=".ContactsPickerActivity"/>
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyApzwuqhqHCaPuGNYB-SDPEv1zSFi5g-6k"/>
+            android:value="@string/google_geo_key"/>
         <meta-data android:name="io.branch.sdk.BranchKey" android:value="@string/branch_key_live" />
         <meta-data android:name="io.branch.sdk.BranchKey.test" android:value="@string/branch_key_test" />
     </application>
