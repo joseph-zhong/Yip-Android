@@ -14,11 +14,20 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <activity android:name=".MainActivity">
+        <activity android:name=".MainActivity"
+            android:label="@string/app_name"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Branch.io Deeplink -->
+            <intent-filter>
+                <data android:scheme="@string/branch_id" android:host="open" />
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
             </intent-filter>
         </activity>
         <activity android:name=".CompassActivity"/>
@@ -26,6 +35,8 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyApzwuqhqHCaPuGNYB-SDPEv1zSFi5g-6k"/>
+        <meta-data android:name="io.branch.sdk.BranchKey" android:value="@string/branch_key_live" />
+        <meta-data android:name="io.branch.sdk.BranchKey.test" android:value="@string/branch_key_test" />
     </application>
 
 </manifest>

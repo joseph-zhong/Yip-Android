@@ -2,6 +2,8 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -31,7 +33,10 @@ import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.pubnub.api.Callback;
+import com.pubnub.api.Pubnub;
 import com.pubnub.api.PubnubError;
+import com.pubnub.api.PubnubException;
+import com.pubnub.api.PubnubUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -50,6 +55,8 @@ import static java.util.Locale.getDefault;
  */
 public class CompassActivity extends Activity implements SensorEventListener,
         GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
+    private Pubnub pubnub;
+
     /** Layout Elements */
     private ImageView compass;
 
@@ -59,27 +66,38 @@ public class CompassActivity extends Activity implements SensorEventListener,
     /** Google API */
     private GoogleApiClient mGoogleApiClient;
 
-    @Override
+    /** Tracks the user's yipType */
+    private App.YipType yipType;
+
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
         App.currentContext = this.getApplicationContext();
 
         // init
-        Bundle extras = getIntent().getExtras();
+//        pubnub = PubnubManager.init();
+        pubnub = new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
+                App.currentContext.getString(R.string.pubnub_subscribe_key));
+        pubnub.setResumeOnReconnect(true);
+
         this.compass = (ImageView) findViewById(R.id.compass);
+        PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
+                getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+        autocompleteFragment.setOnPlaceSelectedListener(this);
+        Bundle extras = getIntent().getExtras();
         if (extras != null) {
-            App.YipType type;
-
-            type = (App.YipType) extras.getSerializable("mode");
-
+            App.YipType type = (App.YipType) extras.getSerializable("mode");
             if (type == App.YipType.ADDRESS_YIP) {
-                PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
-                        getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
-                autocompleteFragment.setOnPlaceSelectedListener(this);
+
             }
             else if(type == App.YipType.TWO_USERS_YIP) {
-
+                FragmentManager fm = getFragmentManager();
+                FragmentTransaction fragmentTransaction = fm.beginTransaction();
+                fragmentTransaction.hide(autocompleteFragment);
+                fragmentTransaction.commit();
+//                    pubnub.subscribe(PubnubManager.generateNewName(), subscribeCallback);
+                PubnubManager.joinChannel(pubnub, PubnubManager.generateNewName(), subscribeCallback);
             }
             else {
 
@@ -90,6 +108,67 @@ public class CompassActivity extends Activity implements SensorEventListener,
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         this.buildGoogleApiClient();
     }
+
+    /**
+     * Subscribe Callback
+     * Connect: Logs
+     * Disconnect: Logs
+     * Reconnect: Logs
+     * Success: Records location data received
+     * Error: Logs
+     * @return a S/E Callback */
+    public Callback subscribeCallback = new Callback() {
+        @Override
+        public void connectCallback(String channel, Object message) {
+            Log.i(getClass().getSimpleName(), "SUBSCRIBE : CONNECT on channel:" + channel
+                    + " : " + message.getClass() + " : "
+                    + message.toString());
+            PubnubManager.isConnected = true;
+        }
+
+        @Override
+        public void disconnectCallback(String channel, Object message) {
+            Log.i(getClass().getSimpleName(), "SUBSCRIBE : DISCONNECT on channel:" + channel
+                    + " : " + message.getClass() + " : "
+                    + message.toString());
+            PubnubManager.isConnected = false;
+        }
+
+        @Override
+        public void reconnectCallback(String channel, Object message) {
+            Log.i(getClass().getSimpleName(), "SUBSCRIBE : RECONNECT on channel:" + channel
+                    + " : " + message.getClass() + " : "
+                    + message.toString());
+        }
+
+        @Override
+        public void successCallback(String channel, Object message) {
+            try {
+                JSONObject json = new JSONObject(message.toString());
+                Log.i(getClass().getSimpleName(), "Received message: " + json);
+                String uuid = json.getString("uuid");
+                if(uuid.equals(pubnub.uuid())) {
+                    double lat = json.getDouble("lat");
+                    double lng = json.getDouble("lng");
+                    double alt = json.getDouble("alt");
+                    Location loc = new Location("");
+                    loc.setLatitude(lat);
+                    loc.setLongitude(lng);
+                    loc.setAltitude(alt);
+                    LocationService.targetLocation = loc;
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            Log.i(getClass().getSimpleName(), "Successful subscription to " + channel);
+        }
+
+        @Override
+        public void errorCallback(String channel, PubnubError error) {
+            Log.e(getClass().getSimpleName(), "Error occured in " + channel + " "
+                    + error.getErrorString());
+        }
+        };
 
 
     /**
@@ -238,9 +317,29 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Location Changed Handler */
     public void onLocationChanged(Location location) {
-//        broadcastLocation(location);
         LocationService.currentLocation = location;
-        Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude() + ", " + location.getLongitude());
+        if(PubnubManager.isConnected) {
+            try {
+                PubnubManager.sendLocation(this.pubnub, location, publishCallback);
+//                JSONObject locJson = new JSONObject();
+//                locJson.put("uuid", pubnub.uuid());
+//                locJson.put("lat", location.getLatitude());
+//                locJson.put("lng", location.getLongitude());
+//                locJson.put("alt", location.getAltitude());
+//                pubnub.publish(PubnubManager.getCurrentChannelName(), locJson, publishCallback);
+                Log.i(this.getClass().getSimpleName(), "Published new location");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        else {
+            Log.i(this.getClass().getSimpleName(), "Not connected");
+        }
+
+//        pubnub.publish(PubnubManager.currentChannelName, "Location : " + location.getLatitude() +
+//                ", " + location.getLongitude(), publishCallback);
+        Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude() +
+                ", " + location.getLongitude());
     }
 
     /**
@@ -257,40 +356,16 @@ public class CompassActivity extends Activity implements SensorEventListener,
         CompassManager.currentDegree = -direction;
     }
 
-    /**
-     * Broadcasts Location
-     * Callback: Publish Callback
-     * @param location Updated Location
-     * pre: Called when user location updates
-     * post: Broadcast Location to Pubnub Channel */
-    private void broadcastLocation(Location location) {
-        JSONObject message = new JSONObject();
-        try {
-            message.put("lat", location.getLatitude());
-            message.put("lng", location.getLongitude());
-            message.put("alt", location.getAltitude());
-        } catch (JSONException e) {
-            Log.e(this.getClass().getSimpleName(), e.toString());
+    private Callback publishCallback = new Callback() {
+        public void successCallback(String channel, Object message) {
+            Log.i(PubnubManager.class.getSimpleName(), "Successful publish to " + channel);
+            // todo: send success...
         }
-        PubnubManager.client.publish(PubnubManager.CHANNEL_NAME, message, this.publishCallback());
-    }
-
-    /**
-     * Publish Callback
-     * Success: Logs
-     * Error: Logs
-     * @return Callback Post Publishing */
-    private Callback publishCallback() {
-        return new Callback() {
-            @Override
-            public void successCallback(String channel, Object response) {
-                Log.d("PUBNUB", response.toString());
-            }
-
-            @Override
-            public void errorCallback(String channel, PubnubError error) {
-                Log.e("PUBNUB", error.toString());
-            }
-        };
-    }
+        public void errorCallback(String channel, PubnubError error) {
+            Log.e(PubnubManager.class.getSimpleName(), "Error publish to " + channel + " "
+                    + error.getErrorString());
+            Log.e(PubnubManager.class.getSimpleName(), "code: " + error.errorCode);
+            // todo: send error ...
+        }
+    };
 }

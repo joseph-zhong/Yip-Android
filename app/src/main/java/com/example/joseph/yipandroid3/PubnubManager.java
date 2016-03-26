@@ -18,18 +18,19 @@ public class PubnubManager {
     /** Number used for UUID Generation */
     private static final int RANDOM_LARGE_NUMBER = 65535;
 
-    /** Global Pubnub client */
-    public static Pubnub client = new Pubnub("pub-c-1b3b7682-6fc8-40f4-b51f-d10e79987840",
-            "sub-c-0df608f6-5430-11e5-85f6-0619f8945a4f");;
-
     /** Our received location */
-    private static Location receivedLoc;
+    public static Location receivedLoc;
 
     /** Boolean tracking connection */
-    private static boolean isConnected;
+    public static boolean isConnected;
 
     /** Channel Name connected */
-    public static String CHANNEL_NAME = "joseph-reported";
+    private static String currentChannelName;
+
+    public static Pubnub init() {
+        return new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
+                App.currentContext.getString(R.string.pubnub_subscribe_key));
+    }
 
     /** @return boolean whether location has been received */
     public static boolean hasReceivedLoc() {
@@ -43,7 +44,7 @@ public class PubnubManager {
 
     /** Joins Specified Channel
      * @param channelName Channel Name to join */
-    public static void joinChannel(String channelName) {
+    public static void joinChannel(Pubnub client, String channelName) {
         try {
             client.subscribe(channelName, subscribeCallback());
         }
@@ -52,24 +53,44 @@ public class PubnubManager {
         }
     }
 
+    /** Joins Random Channel */
+    public static void joinChannel(Pubnub client) {
+        try {
+//            client.subscribe(randomChannelName(), subscribeCallback());
+            client.subscribe(currentChannelName, subscribeCallback());
+        }
+        catch (PubnubException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Joins Specified Channel
+     * @param channelName Channel Name to join */
+    public static void joinChannel(Pubnub client, String channelName, Callback callback) {
+        try {
+            client.subscribe(channelName, callback);
+        }
+        catch (PubnubException e) {
+            e.printStackTrace();
+        }
+    }
+
     /** Helper method to unsubscribe */
-    public static void terminate() {
+    public static void terminate(Pubnub client) {
         client.unsubscribeAllChannels();
     }
 
     /** Method to send location across channel
      * @param location
      * @throws JSONException */
-    public static void sendLocation(Location location) throws JSONException {
-        String uuid = client.uuid();
-
+    public static void sendLocation(Pubnub client, Location location, Callback callback) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("lat", location.getLatitude());
         obj.put("lng", location.getLongitude());
         obj.put("alt", location.getAltitude());
-        obj.put("uuid", uuid);
+        obj.put("uuid", client.uuid());
 
-        client.publish(CHANNEL_NAME, obj, publishCallback());
+        client.publish(currentChannelName, obj, callback);
     }
 
     /**
@@ -99,13 +120,14 @@ public class PubnubManager {
      * Success: Records location data received
      * Error: Logs
      * @return a S/E Callback */
-    private static Callback subscribeCallback() {
+    public static Callback subscribeCallback() {
         return new Callback() {
             @Override
             public void connectCallback(String channel, Object message) {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : CONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
+                isConnected = true;
             }
 
             @Override
@@ -113,6 +135,7 @@ public class PubnubManager {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : DISCONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
+                isConnected = false;
             }
 
             @Override
@@ -148,6 +171,20 @@ public class PubnubManager {
                         + error.getErrorString());
             }
         };
+    }
+
+    /** Helper to return new name */
+    public static String generateNewName() {
+        currentChannelName = randomChannelName();
+        return currentChannelName;
+    }
+
+    /** Return the current name if available, otherwise sets a new one */
+    public static String getCurrentChannelName() {
+        if (currentChannelName != null && !currentChannelName.isEmpty()) {
+            return currentChannelName;
+        }
+        return generateNewName();
     }
 
     /** Generate a random channel name. */ // TODO: Make this better lol

@@ -16,6 +16,8 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import org.json.JSONException;
+
 /**
  * Created by Joseph on 12/19/15.
  * Updated by Joseph on 12/19/15.

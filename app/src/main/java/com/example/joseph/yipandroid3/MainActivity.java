@@ -18,6 +18,8 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
+import org.json.JSONException;
+
 
 /**
  * This is the main activity class for the Yip App
@@ -82,7 +84,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
         // This is the standard resultCode that is sent back if the
         // activity crashed or didn't doesn't supply an explicit result.
         if (resultCode == RESULT_CANCELED){
-            Toast.makeText(this, "No contact selected", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No one selected", Toast.LENGTH_SHORT).show();
         }
         else {
             String contact = (String) data.getExtras().get(ContactsPickerActivity.KEY_CONTACT_NAME);
@@ -90,8 +92,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
             Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
 
             // todo: SMS send
-            SmsService.sendSMS(number, "hello test");
-
+//            SmsService.sendSMS(number, "hello test");
             Intent intent = new Intent(getApplicationContext(), CompassActivity.class);
             intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
 
