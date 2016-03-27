@@ -19,10 +19,8 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
-import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
-import android.widget.AdapterView;
 import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -36,10 +34,7 @@ import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.pubnub.api.Callback;
-import com.pubnub.api.Pubnub;
 import com.pubnub.api.PubnubError;
-import com.pubnub.api.PubnubException;
-import com.pubnub.api.PubnubUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -98,9 +93,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 FragmentTransaction fragmentTransaction = fm.beginTransaction();
                 fragmentTransaction.hide(autocompleteFragment);
                 fragmentTransaction.commit();
-                PubnubManager.joinChannel(PubnubManager.generateNewName(), PubnubManager.subscribeCallback());
-                // DEBUG ONLY
-//                PubnubManager.joinChannel(PubnubManager.getCurrentChannelName(), PubnubManager.subscribeCallback());
+                PubnubManager.joinChannel();
             }
             else {
 
@@ -183,32 +176,35 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     protected void onStart() {
         this.mGoogleApiClient.connect();
-        super.onStart();
 
         Branch branch = Branch.getInstance(getApplicationContext());
-
         branch.initSession(new Branch.BranchReferralInitListener() {
             @Override
             public void onInitFinished(JSONObject referringParams, BranchError error) {
                 if (error == null) {
                     // capture params here
                     String yip_channel = referringParams.optString("yip_channel", "");
+                    Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + yip_channel);
                 } else {
-                    Log.i(this.getClass().getSimpleName(), error.getMessage());
+                    Log.i(this.getClass().getSimpleName(), "No yip_channel: " + error.getMessage());
                 }
             }
         }, this.getIntent().getData(), this);
+
+        super.onStart();
     }
 
     @Override
     protected void onStop() {
         this.mGoogleApiClient.disconnect();
         super.onStop();
+        PubnubManager.terminate();
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
+        PubnubManager.terminate();
     }
 
     @Override
@@ -292,6 +288,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         }
         Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude()
                 + ", " + location.getLongitude());
+        Log.i(this.getClass().getSimpleName(), "Current Channel Name: " + PubnubManager.getCurrentChannelName());
     }
 
     /**

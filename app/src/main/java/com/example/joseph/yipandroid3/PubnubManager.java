@@ -29,7 +29,6 @@ public class PubnubManager {
 
     /** Channel Name connected */
     private static String currentChannelName;
-//    private static String currentChannelName = "2035920350362834225546675";
 
     /** */
     public static String uuid;
@@ -68,19 +67,24 @@ public class PubnubManager {
         }
     }
 
-    /** Joins Random Channel */
+    /** Joins Channel */
     public static void joinChannel() {
         try {
-//            pubnub.subscribe(randomChannelName(), subscribeCallback());
-            pubnub.subscribe(currentChannelName, subscribeCallback());
+            if (currentChannelName != null && !currentChannelName.isEmpty()) {
+                pubnub.subscribe(currentChannelName, subscribeCallback());
+            }
+            else {
+                pubnub.subscribe(getNewChannelName(), subscribeCallback());
+            }
         }
         catch (PubnubException e) {
             e.printStackTrace();
         }
     }
 
-    /** Joins Specified Channel
-     * @param channelName Channel Name to join */
+    /** Joins Specified Channel with callback
+     * @param channelName Channel Name to join
+     * @param callback Callback Custom callback to use */
     public static void joinChannel(String channelName, Callback callback) {
         try {
             pubnub.subscribe(channelName, callback);
@@ -106,7 +110,8 @@ public class PubnubManager {
         obj.put("uuid", pubnub.uuid());
 
         pubnub.publish(currentChannelName, obj, callback);
-        Log.i(PubnubManager.class.getSimpleName(), "Subscribed: " + pubnub.getCurrentlySubscribedChannelNames());
+        Log.i(PubnubManager.class.getSimpleName(), "Currently Subscribed to: "
+                + pubnub.getCurrentlySubscribedChannelNames());
     }
 
     /**
@@ -190,17 +195,14 @@ public class PubnubManager {
     }
 
     /** Helper to return new name */
-    public static String generateNewName() {
+    public static String getNewChannelName() {
         currentChannelName = randomChannelName();
         return currentChannelName;
     }
 
-    /** Return the current name if available, otherwise sets a new one */
+    /** Return the current name -- CAN BE NULL */
     public static String getCurrentChannelName() {
-        if (currentChannelName != null && !currentChannelName.isEmpty()) {
-            return currentChannelName;
-        }
-        return generateNewName();
+        return currentChannelName;
     }
 
     /** Generate a random channel name. */ // TODO: Make this better lol

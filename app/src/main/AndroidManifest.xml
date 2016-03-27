@@ -31,7 +31,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="@string/uri_scheme" />
                 <data android:scheme="@string/uri_scheme_secure" />
-                <data android:host="@string/uri_host" />
+                <data android:scheme="@string/uri_scheme_nothappy" />
+                <!--<data android:host="@string/uri_host" />-->
             </intent-filter>
         </activity>
         <activity android:name=".ContactsPickerActivity"/>
@@ -39,7 +40,7 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/google_geo_key"/>
         <meta-data android:name="io.branch.sdk.BranchKey" android:value="@string/branch_key_live" />
-        <meta-data android:name="io.branch.sdk.BranchKey.test" android:value="@string/branch_key_test" />
+        <!--<meta-data android:name="io.branch.sdk.BranchKey.test" android:value="@string/branch_key_test" />-->
     </application>
 
     <receiver android:name="io.branch.referral.InstallListener" android:exported="true">

@@ -129,9 +129,8 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
         LinkProperties linkProperties = new LinkProperties()
                 .setChannel("facebook")
                 .setFeature("sharing")
-                .addControlParameter("$fallback_url", getString(R.string.fallback_url))
-                .addControlParameter("$desktop_url", getString(R.string.fallback_url))
-                .addControlParameter("$ios_url", getString(R.string.fallback_url));
+//                .addControlParameter("$fallback_url", getString(R.string.fallback_url));
+                .addControlParameter("$fallback_url", "zzzz.com");
 
         branchUniversalObject.generateShortUrl(this, linkProperties, new Branch.BranchLinkCreateListener() {
             @Override
@@ -212,7 +211,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 
     @Override
     public void onStart() {
-        super.onStart();
+        Branch branch = Branch.getInstance(getApplicationContext());
 
         /**
          * Deep link via push notif
@@ -220,5 +219,6 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 //        Intent resultIntent = new Intent(this, TargetClass.class);
 //        intent.putExtra("branch","http://bnc.lt/testlink");
 //        PendingIntent resultPendingIntent =  PendingIntent.getActivity(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+        super.onStart();
     }
 }
