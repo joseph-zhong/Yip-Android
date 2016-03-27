@@ -11,6 +11,7 @@ import com.pubnub.api.PubnubException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.HashMap;
 import java.util.IllegalFormatCodePointException;
 
 /**
@@ -31,7 +32,6 @@ public class PubnubManager {
     public static void init() {
         pubnub = new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
                 App.currentContext.getString(R.string.pubnub_subscribe_key));
-        pubnub.setResumeOnReconnect(true);
     }
 
     /** @param newChannelName String New Channel Name to use */
@@ -51,7 +51,8 @@ public class PubnubManager {
 
     /** @return boolean on whether client is connected */
     public static boolean isConnected() {
-        return pubnub.getCurrentlySubscribedChannelNames() != "no channels.";
+        Log.i(PubnubManager.class.getSimpleName(), "Connected to: " + pubnub.getCurrentlySubscribedChannelNames());
+        return !pubnub.getCurrentlySubscribedChannelNames().equals("no channels.");
     }
 
     /** Joins Channel
@@ -76,14 +77,17 @@ public class PubnubManager {
     /** Method to send location across channel
      * @param location
      * @throws JSONException */
-    public static void sendLocation(Location location, Callback callback) throws JSONException {
+    public static void sendLocation(Location location) throws JSONException {
+        if(!isCurrentChannelNameValid()) {
+            throw new IllegalStateException("Current Channel Name must not be null or empty");
+        }
         JSONObject obj = new JSONObject();
         obj.put("lat", location.getLatitude());
         obj.put("lng", location.getLongitude());
         obj.put("alt", location.getAltitude());
         obj.put("uuid", pubnub.uuid());
 
-        pubnub.publish(currentChannelName, obj, callback);
+        pubnub.publish(currentChannelName, obj, publishCallback());
         Log.i(PubnubManager.class.getSimpleName(), "Currently Subscribed to: "
                 + pubnub.getCurrentlySubscribedChannelNames());
     }

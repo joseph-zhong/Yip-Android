@@ -155,7 +155,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 if(!PubnubManager.isConnected() && !yip_channel.isEmpty()) {
                     Log.i(this.getClass().getSimpleName(), "Attempting to join channel: " + yip_channel);
                     PubnubManager.setCurrentChannelName(yip_channel);
-                    PubnubManager.joinChannel();
+//                    PubnubManager.joinChannel();
                 }
                 else {
                     // todo: figure what the heck is going on
@@ -199,11 +199,10 @@ public class CompassActivity extends Activity implements SensorEventListener,
                     }
                     String yip_channel = referringParams.optString("yip_channel", "");
                     Log.i(this.getClass().getSimpleName(), "Channel Name Received onStart() -- " + yip_channel);
-                    if(!PubnubManager.isConnected() && !yip_channel.isEmpty()) {
+                    if (!PubnubManager.isConnected() && !yip_channel.isEmpty()) {
                         PubnubManager.setCurrentChannelName(yip_channel);
                         PubnubManager.joinChannel();
-                    }
-                    else {
+                    } else {
                         // todo: figure what the heck is going on
                     }
                 } else {
@@ -298,13 +297,19 @@ public class CompassActivity extends Activity implements SensorEventListener,
         LocationService.currentLocation = location;
         if(PubnubManager.isConnected()) {
             try {
-                PubnubManager.sendLocation(location, PubnubManager.publishCallback());
+                PubnubManager.sendLocation(location);
             } catch (JSONException e) {
                 e.printStackTrace();
             }
         }
         else {
             Log.i(this.getClass().getSimpleName(), "Not connected");
+            if(PubnubManager.isCurrentChannelNameValid()) {
+                PubnubManager.joinChannel();
+            }
+            else {
+                // todo: figure what the heck is going on
+            }
         }
         Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude()
                 + ", " + location.getLongitude());
