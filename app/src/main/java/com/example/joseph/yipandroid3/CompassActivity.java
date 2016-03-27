@@ -150,10 +150,16 @@ public class CompassActivity extends Activity implements SensorEventListener,
         if (Branch.isAutoDeepLinkLaunch(this)) {
             PubnubManager.init();
             try {
-                String channelName = Branch.getInstance().getLatestReferringParams().getString("yip_channel");
-                Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + channelName);
-                PubnubManager.setCurrentChannelName(channelName);
-                PubnubManager.joinChannel();
+                String yip_channel = Branch.getInstance().getLatestReferringParams().getString("yip_channel");
+                Log.i(this.getClass().getSimpleName(), "Channel Name Received onResume() -- " + yip_channel);
+                if(!PubnubManager.isConnected() && !yip_channel.isEmpty()) {
+                    Log.i(this.getClass().getSimpleName(), "Attempting to join channel: " + yip_channel);
+                    PubnubManager.setCurrentChannelName(yip_channel);
+                    PubnubManager.joinChannel();
+                }
+                else {
+                    // todo: figure what the heck is going on
+                }
             } catch (JSONException e) {
                 e.printStackTrace();
             }
@@ -191,8 +197,15 @@ public class CompassActivity extends Activity implements SensorEventListener,
                     } catch (JSONException e) {
                         e.printStackTrace();
                     }
-                    String yip_channel = referringParams.optString("yip_channel", "NO YIP CHANNEL FOUND");
-                    Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + yip_channel);
+                    String yip_channel = referringParams.optString("yip_channel", "");
+                    Log.i(this.getClass().getSimpleName(), "Channel Name Received onStart() -- " + yip_channel);
+                    if(!PubnubManager.isConnected() && !yip_channel.isEmpty()) {
+                        PubnubManager.setCurrentChannelName(yip_channel);
+                        PubnubManager.joinChannel();
+                    }
+                    else {
+                        // todo: figure what the heck is going on
+                    }
                 } else {
                     Log.i(this.getClass().getSimpleName(), "Error in Initializing Branch Session: " + error.getMessage());
                 }
