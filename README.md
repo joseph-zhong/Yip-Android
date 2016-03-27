@@ -11,6 +11,8 @@ Note:
 - All dependencies except JScience should be compiled with gradle 
 - Download the `.jar` and enter a new Module and add 
 `compile project(':<nameOfModule>')` to the app's build.gradle file under dependencies
+- `app/src/res/values/api.xml` is gitignored, and must be written mannually
+- See `api_example.xml` for reference
 
 ## Features
 - Yip to Address
