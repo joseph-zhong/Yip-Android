@@ -4,6 +4,9 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -44,6 +47,9 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.util.List;
 
+import io.branch.referral.Branch;
+import io.branch.referral.BranchError;
+
 import static java.util.Locale.getDefault;
 
 /**
@@ -55,8 +61,6 @@ import static java.util.Locale.getDefault;
  */
 public class CompassActivity extends Activity implements SensorEventListener,
         GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
-    private Pubnub pubnub;
-
     /** Layout Elements */
     private ImageView compass;
 
@@ -76,11 +80,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         App.currentContext = this.getApplicationContext();
 
         // init
-//        pubnub = PubnubManager.init();
-        pubnub = new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
-                App.currentContext.getString(R.string.pubnub_subscribe_key));
-        pubnub.setResumeOnReconnect(true);
-
+        PubnubManager.init();
         this.compass = (ImageView) findViewById(R.id.compass);
         PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
@@ -98,8 +98,9 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 FragmentTransaction fragmentTransaction = fm.beginTransaction();
                 fragmentTransaction.hide(autocompleteFragment);
                 fragmentTransaction.commit();
-                PubnubManager.joinChannel(pubnub, PubnubManager.generateNewName(),
-                        PubnubManager.subscribeCallback(pubnub));
+                PubnubManager.joinChannel(PubnubManager.generateNewName(), PubnubManager.subscribeCallback());
+                // DEBUG ONLY
+//                PubnubManager.joinChannel(PubnubManager.getCurrentChannelName(), PubnubManager.subscribeCallback());
             }
             else {
 
@@ -151,15 +152,26 @@ public class CompassActivity extends Activity implements SensorEventListener,
     protected void onResume () {
         super.onResume();
         this.mSensorManager.registerListener(
-            this,
-            this.mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
-            SensorManager.SENSOR_DELAY_UI
+                this,
+                this.mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
+                SensorManager.SENSOR_DELAY_UI
         );
         this.mSensorManager.registerListener(
-            this,
-            this.mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
-            SensorManager.SENSOR_DELAY_UI
+                this,
+                this.mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_UI
         );
+
+        if (Branch.isAutoDeepLinkLaunch(this)) {
+            try {
+                String channelName = Branch.getInstance().getLatestReferringParams().getString("yip_channel");
+                Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + channelName);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        } else {
+            Log.i(this.getClass().getSimpleName(), "Launched by normal application flow");
+        }
     }
 
     @Override
@@ -172,6 +184,20 @@ public class CompassActivity extends Activity implements SensorEventListener,
     protected void onStart() {
         this.mGoogleApiClient.connect();
         super.onStart();
+
+        Branch branch = Branch.getInstance(getApplicationContext());
+
+        branch.initSession(new Branch.BranchReferralInitListener() {
+            @Override
+            public void onInitFinished(JSONObject referringParams, BranchError error) {
+                if (error == null) {
+                    // capture params here
+                    String yip_channel = referringParams.optString("yip_channel", "");
+                } else {
+                    Log.i(this.getClass().getSimpleName(), error.getMessage());
+                }
+            }
+        }, this.getIntent().getData(), this);
     }
 
     @Override
@@ -183,6 +209,24 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     public void onDestroy() {
         super.onDestroy();
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        this.setIntent(intent);
+    }
+
+    /**
+     * Install DeepLink Listener
+     */
+    public class InstallListener extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String rawReferrerString = intent.getStringExtra("referrer");   // use this for channelName?
+            if(rawReferrerString != null) {
+                Log.i(this.getClass().getSimpleName(), "Received the following intent " + rawReferrerString);
+            }
+        }
     }
 
     @Override
@@ -237,7 +281,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         LocationService.currentLocation = location;
         if(PubnubManager.isConnected) {
             try {
-                PubnubManager.sendLocation(this.pubnub, location, PubnubManager.publishCallback());
+                PubnubManager.sendLocation(location, PubnubManager.publishCallback());
                 Log.i(this.getClass().getSimpleName(), "Published new location");
             } catch (JSONException e) {
                 e.printStackTrace();

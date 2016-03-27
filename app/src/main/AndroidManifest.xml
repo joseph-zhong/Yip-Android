@@ -13,8 +13,7 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        android:name="io.branch.referral.BranchApp">
+        android:theme="@style/AppTheme">
         <activity android:name=".MainActivity"
             android:label="@string/app_name"
             android:launchMode="singleTask">
@@ -22,18 +21,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity android:name=".CompassActivity">
+            <meta-data android:name="io.branch.sdk.auto_link_keys" android:value="yip_channel" />
 
-            <!-- Deeplink opens Main Activity todo: create a launcher activity -->
             <intent-filter>
-                <!--<data android:scheme="@string/uri_scheme" android:host="open" />-->
-                <data android:scheme="@string/uri_scheme" android:host="@string/uri_host"/>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="@string/uri_scheme" />
+                <data android:scheme="@string/uri_scheme_secure" />
+                <data android:host="@string/uri_host" />
             </intent-filter>
-        </activity>
-        <activity android:name=".CompassActivity">
-            <meta-data android:name="io.branch.sdk.auto_link_keys" android:value="channel_name" />
         </activity>
         <activity android:name=".ContactsPickerActivity"/>
         <meta-data

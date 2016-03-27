@@ -15,6 +15,9 @@ import org.json.JSONObject;
  * Created by Joseph on 2/27/16.
  */
 public class PubnubManager {
+
+    private static Pubnub pubnub;
+
     /** Number used for UUID Generation */
     private static final int RANDOM_LARGE_NUMBER = 65535;
 
@@ -26,14 +29,17 @@ public class PubnubManager {
 
     /** Channel Name connected */
     private static String currentChannelName;
+//    private static String currentChannelName = "2035920350362834225546675";
 
     /** */
     public static String uuid;
 
     /** Public initializer */
-    public static Pubnub init() {
-        return new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
+    public static void init() {
+        pubnub = new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
                 App.currentContext.getString(R.string.pubnub_subscribe_key));
+        pubnub.setResumeOnReconnect(true);
+        isConnected = false;
     }
 
     /** @return boolean whether location has been received */
@@ -46,11 +52,16 @@ public class PubnubManager {
         return receivedLoc;
     }
 
+    /** @return Pubnub current client */
+    public static Pubnub getPubnub() {
+        return pubnub;
+    }
+
     /** Joins Specified Channel
      * @param channelName Channel Name to join */
-    public static void joinChannel(Pubnub client, String channelName) {
+    public static void joinChannel(String channelName) {
         try {
-            client.subscribe(channelName, subscribeCallback(client));
+            pubnub.subscribe(channelName, subscribeCallback());
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -58,10 +69,10 @@ public class PubnubManager {
     }
 
     /** Joins Random Channel */
-    public static void joinChannel(Pubnub client) {
+    public static void joinChannel() {
         try {
-//            client.subscribe(randomChannelName(), subscribeCallback());
-            client.subscribe(currentChannelName, subscribeCallback(client));
+//            pubnub.subscribe(randomChannelName(), subscribeCallback());
+            pubnub.subscribe(currentChannelName, subscribeCallback());
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -70,9 +81,9 @@ public class PubnubManager {
 
     /** Joins Specified Channel
      * @param channelName Channel Name to join */
-    public static void joinChannel(Pubnub client, String channelName, Callback callback) {
+    public static void joinChannel(String channelName, Callback callback) {
         try {
-            client.subscribe(channelName, callback);
+            pubnub.subscribe(channelName, callback);
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -80,21 +91,22 @@ public class PubnubManager {
     }
 
     /** Helper method to unsubscribe */
-    public static void terminate(Pubnub client) {
-        client.unsubscribeAllChannels();
+    public static void terminate() {
+        pubnub.unsubscribeAllChannels();
     }
 
     /** Method to send location across channel
      * @param location
      * @throws JSONException */
-    public static void sendLocation(Pubnub client, Location location, Callback callback) throws JSONException {
+    public static void sendLocation(Location location, Callback callback) throws JSONException {
         JSONObject obj = new JSONObject();
         obj.put("lat", location.getLatitude());
         obj.put("lng", location.getLongitude());
         obj.put("alt", location.getAltitude());
-        obj.put("uuid", client.uuid());
+        obj.put("uuid", pubnub.uuid());
 
-        client.publish(currentChannelName, obj, callback);
+        pubnub.publish(currentChannelName, obj, callback);
+        Log.i(PubnubManager.class.getSimpleName(), "Subscribed: " + pubnub.getCurrentlySubscribedChannelNames());
     }
 
     /**
@@ -122,7 +134,7 @@ public class PubnubManager {
      * Success: Records location data received
      * Error: Logs
      * @return a S/E Callback */
-    public static Callback subscribeCallback(final Pubnub client) {
+    public static Callback subscribeCallback() {
         return new Callback() {
             @Override
             public void connectCallback(String channel, Object message) {
@@ -153,7 +165,7 @@ public class PubnubManager {
                     JSONObject json = new JSONObject(message.toString());
                     Log.i(getClass().getSimpleName(), "Received message: " + json);
                     String uuid = json.getString("uuid");
-                    if (uuid.equals(client.uuid())) {
+                    if (uuid.equals(pubnub.uuid())) {
                         double lat = json.getDouble("lat");
                         double lng = json.getDouble("lng");
                         double alt = json.getDouble("alt");

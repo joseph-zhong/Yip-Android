@@ -121,21 +121,23 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
                 .setCanonicalIdentifier(PubnubManager.getCurrentChannelName())
                 .setTitle("Yip me!")
                 .setContentDescription("Request to Yip")
-                .addContentMetadata("channel_name", PubnubManager.getCurrentChannelName())
+                .setContentIndexingMode(BranchUniversalObject.CONTENT_INDEX_MODE.PUBLIC)
+                .addContentMetadata("yip_channel", PubnubManager.getCurrentChannelName())
                 .addContentMetadata("uuid", PubnubManager.uuid);
 
+        // set fallback here
         LinkProperties linkProperties = new LinkProperties()
-                .setChannel("sms")
-                .setFeature("sharing");
+                .setChannel("facebook")
+                .setFeature("sharing")
+                .addControlParameter("$fallback_url", getString(R.string.fallback_url))
+                .addControlParameter("$desktop_url", getString(R.string.fallback_url))
+                .addControlParameter("$ios_url", getString(R.string.fallback_url));
 
         branchUniversalObject.generateShortUrl(this, linkProperties, new Branch.BranchLinkCreateListener() {
             @Override
             public void onLinkCreate(String url, BranchError error) {
                 if (error == null) {
-                    Log.i("MyApp", "got my Branch link to share: " + url);
-                    // todo: test SMS send
-//                    SmsService.sendSMS("4256287248", "Yip Me! \n " + getString(R.string.uri_scheme) + "://"
-//                            + getString(R.string.uri_host));
+                    Log.i(this.getClass().getSimpleName(), "got my Branch link to share: " + url);
                     SmsService.sendSMS("4256287248", "Yip me! \n " + url);
                 }
             }
@@ -145,7 +147,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     /** Select Set Location Mode */
     private View.OnClickListener rememberLocationListener = new View.OnClickListener() {
         public void onClick(View v) {
-
+            // todo: set location
         }
     };
 
@@ -218,51 +220,5 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 //        Intent resultIntent = new Intent(this, TargetClass.class);
 //        intent.putExtra("branch","http://bnc.lt/testlink");
 //        PendingIntent resultPendingIntent =  PendingIntent.getActivity(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-
-        Branch branch = Branch.getInstance();
-        branch.initSession(new Branch.BranchReferralInitListener() {
-            @Override
-            public void onInitFinished(JSONObject referringParams, BranchError error) {
-                if (error == null) {
-                    // params are the deep linked params associated with the link that the user clicked before showing up
-                    Log.i("BranchConfigTest", "deep link data: " + referringParams.toString());
-                }
-            }
-        }, this.getIntent().getData(), this);
-    }
-
-    @Override
-    public void onNewIntent(Intent intent) {
-        this.setIntent(intent);
-    }
-
-
-    /**
-     * Install DeepLink Listener
-     */
-    public class InstallListener extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String rawReferrerString = intent.getStringExtra("referrer");   // use this for channelName?
-            if(rawReferrerString != null) {
-                Log.i("MyApp", "Received the following intent " + rawReferrerString);
-            }
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (Branch.isAutoDeepLinkLaunch(this)) {
-            try {
-                String channelName = Branch.getInstance().getLatestReferringParams().getString("channel_name");
-                Log.i(this.getClass().getSimpleName(), "Channel Name Received -- " + channelName);
-            } catch (JSONException e) {
-                e.printStackTrace();
-            }
-        } else {
-            Log.i(this.getClass().getSimpleName(), "Launched by normal application flow");
-        }
     }
 }
