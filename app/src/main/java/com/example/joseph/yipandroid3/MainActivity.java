@@ -2,14 +2,10 @@ package com.example.joseph.yipandroid3;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.*;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Telephony;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.util.Log;
@@ -21,7 +17,6 @@ import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
-import com.pubnub.api.PubnubUtil;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -29,9 +24,7 @@ import org.json.JSONObject;
 import io.branch.indexing.BranchUniversalObject;
 import io.branch.referral.Branch;
 import io.branch.referral.BranchError;
-import io.branch.referral.SharingHelper;
 import io.branch.referral.util.LinkProperties;
-import io.branch.referral.util.ShareSheetStyle;
 
 
 /**
@@ -58,10 +51,16 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        initElements();
         App.currentContext = this.getApplicationContext();
 
-        buildGoogleApiClient();
 
+
+
+    }
+
+    private void initElements() {
         Button yipAFriendBtn = (Button) findViewById(R.id.yipAFriend);
         yipAFriendBtn.setOnClickListener(yipAFriendListener);
 
@@ -70,6 +69,8 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 
         Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
         rememberLocationBtn.setOnClickListener(rememberLocationListener);
+
+        buildGoogleApiClient();
     }
 
     /** Initialize Google API Client
@@ -87,19 +88,18 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     /** Select Yip A Friend Mode */
     private View.OnClickListener yipAFriendListener = new View.OnClickListener() {
         public void onClick(View v) {
-            startActivityForResult(new Intent(getApplicationContext(), ContactsPickerActivity.class), 200);
+            startActivityForResult(new Intent(getApplicationContext(), ContactsPickerActivity.class),
+                    getResources().getInteger(R.integer.contact_success));
         }
     };
 
     /** Activity Result Listener to catch return data */
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        // This is the standard resultCode that is sent back if the
-        // activity crashed or didn't doesn't supply an explicit result.
-        if (resultCode == RESULT_CANCELED){
+        if (resultCode == RESULT_CANCELED) {
             Toast.makeText(this, "No one selected", Toast.LENGTH_SHORT).show();
         }
-        else {
+        else if (requestCode == getResources().getInteger(R.integer.contact_success)) {
             String contact = (String) data.getExtras().get(ContactsPickerActivity.KEY_CONTACT_NAME);
             String number = (String) data.getExtras().get(ContactsPickerActivity.KEY_PHONE_NUMBER);
             Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
@@ -111,6 +111,11 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 
             startActivity(intent);
         }
+        //Checking if the previous activity is launched on Branch Auto deep link.
+        else if(requestCode == getResources().getInteger(R.integer.deeplink_success)){
+            //Decide here where to navigate when an auto deep linked activity finishes.
+            finish();
+        }
     }
 
     /**
@@ -118,12 +123,12 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
      */
     private void sendSMSHelper() {
         BranchUniversalObject branchUniversalObject = new BranchUniversalObject()
-                .setCanonicalIdentifier(PubnubManager.getCurrentChannelName())
+                .setCanonicalIdentifier("Yip Request")
                 .setTitle("Yip me!")
                 .setContentDescription("Request to Yip")
                 .setContentIndexingMode(BranchUniversalObject.CONTENT_INDEX_MODE.PUBLIC)
-                .addContentMetadata("yip_channel", PubnubManager.getCurrentChannelName())
-                .addContentMetadata("uuid", PubnubManager.uuid);
+                .addContentMetadata("yip_channel", PubnubManager.getNewChannelName())
+                .addContentMetadata("uuid", PubnubManager.getPubnub().uuid());
 
         // set fallback here
         LinkProperties linkProperties = new LinkProperties()
@@ -211,14 +216,34 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 
     @Override
     public void onStart() {
-        Branch branch = Branch.getInstance(getApplicationContext());
-
+        super.onStart();
+        PubnubManager.init();
         /**
          * Deep link via push notif
          */
 //        Intent resultIntent = new Intent(this, TargetClass.class);
 //        intent.putExtra("branch","http://bnc.lt/testlink");
 //        PendingIntent resultPendingIntent =  PendingIntent.getActivity(this, 0, resultIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-        super.onStart();
+
+        Branch.getInstance().initSession(new Branch.BranchReferralInitListener() {
+            @Override
+            public void onInitFinished(JSONObject referringParams, BranchError error) {
+                if (error == null) {
+                    try {
+                        Log.i(this.getClass().getSimpleName(), referringParams.toString(4));
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    Log.i(this.getClass().getSimpleName(), error.getMessage());
+                }
+            }
+        }, this.getIntent().getData(), this);
+
+    }
+
+    @Override
+    public void onNewIntent(Intent intent) {
+        this.setIntent(intent);
     }
 }

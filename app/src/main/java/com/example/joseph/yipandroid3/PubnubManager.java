@@ -11,44 +11,32 @@ import com.pubnub.api.PubnubException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.IllegalFormatCodePointException;
+
 /**
  * Created by Joseph on 2/27/16.
  */
 public class PubnubManager {
-
-    private static Pubnub pubnub;
-
-    /** Number used for UUID Generation */
+    /** Arbitrary used for UUID Generation
+     * todo: this is unnecessary... */
     private static final int RANDOM_LARGE_NUMBER = 65535;
 
-    /** Our received location */
-    public static Location receivedLoc;
-
-    /** Boolean tracking connection */
-    public static boolean isConnected;
+    /** Default Pubnub Client*/
+    private static Pubnub pubnub;
 
     /** Channel Name connected */
     private static String currentChannelName;
-
-    /** */
-    public static String uuid;
 
     /** Public initializer */
     public static void init() {
         pubnub = new Pubnub(App.currentContext.getString(R.string.pubnub_publish_key),
                 App.currentContext.getString(R.string.pubnub_subscribe_key));
         pubnub.setResumeOnReconnect(true);
-        isConnected = false;
     }
 
-    /** @return boolean whether location has been received */
-    public static boolean hasReceivedLoc() {
-        return receivedLoc != null;
-    }
-
-    /** @return Location received */
-    public static Location getReceivedLoc() {
-        return receivedLoc;
+    /** @param newChannelName String New Channel Name to use */
+    public static void setCurrentChannelName(String newChannelName) {
+        currentChannelName = newChannelName;
     }
 
     /** @return Pubnub current client */
@@ -56,38 +44,24 @@ public class PubnubManager {
         return pubnub;
     }
 
-    /** Joins Specified Channel
-     * @param channelName Channel Name to join */
-    public static void joinChannel(String channelName) {
-        try {
-            pubnub.subscribe(channelName, subscribeCallback());
-        }
-        catch (PubnubException e) {
-            e.printStackTrace();
-        }
+    /** @return boolean on whether current channel is valid */
+    public static boolean isCurrentChannelNameValid() {
+        return currentChannelName != null && !currentChannelName.isEmpty();
     }
 
-    /** Joins Channel */
+    /** @return boolean on whether client is connected */
+    public static boolean isConnected() {
+        return pubnub.getCurrentlySubscribedChannelNames() != "no channels.";
+    }
+
+    /** Joins Channel
+     * @throws IllegalStateException if channel name is not valid */
     public static void joinChannel() {
-        try {
-            if (currentChannelName != null && !currentChannelName.isEmpty()) {
-                pubnub.subscribe(currentChannelName, subscribeCallback());
-            }
-            else {
-                pubnub.subscribe(getNewChannelName(), subscribeCallback());
-            }
+        if(!isCurrentChannelNameValid()) {
+            throw new IllegalStateException("Current Channel name cannot be null or empty");
         }
-        catch (PubnubException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /** Joins Specified Channel with callback
-     * @param channelName Channel Name to join
-     * @param callback Callback Custom callback to use */
-    public static void joinChannel(String channelName, Callback callback) {
         try {
-            pubnub.subscribe(channelName, callback);
+            pubnub.subscribe(currentChannelName, subscribeCallback());
         }
         catch (PubnubException e) {
             e.printStackTrace();
@@ -146,7 +120,6 @@ public class PubnubManager {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : CONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
-                PubnubManager.isConnected = true;
             }
 
             @Override
@@ -154,7 +127,6 @@ public class PubnubManager {
                 Log.i(getClass().getSimpleName(), "SUBSCRIBE : DISCONNECT on channel:" + channel
                         + " : " + message.getClass() + " : "
                         + message.toString());
-                PubnubManager.isConnected = false;
             }
 
             @Override
@@ -174,7 +146,7 @@ public class PubnubManager {
                         double lat = json.getDouble("lat");
                         double lng = json.getDouble("lng");
                         double alt = json.getDouble("alt");
-                        Location loc = new Location("");
+                        Location loc = new Location("Pubnub Message");
                         loc.setLatitude(lat);
                         loc.setLongitude(lng);
                         loc.setAltitude(alt);
@@ -200,8 +172,13 @@ public class PubnubManager {
         return currentChannelName;
     }
 
-    /** Return the current name -- CAN BE NULL */
+    /** @return The current channel name
+     * @throws IllegalStateException if not available
+     * */
     public static String getCurrentChannelName() {
+        if(currentChannelName == null || currentChannelName.isEmpty()) {
+            throw new IllegalArgumentException("currentChannelName is not valid: It cannot be null or empty.");
+        }
         return currentChannelName;
     }
 
