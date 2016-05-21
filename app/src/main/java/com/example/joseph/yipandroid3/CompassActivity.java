@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.RectF;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -18,10 +19,13 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.util.AttributeSet;
 import android.util.Log;
+import android.view.ViewGroup;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -33,6 +37,12 @@ import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.MapFragment;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.Circle;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.pubnub.api.Callback;
 import com.pubnub.api.PubnubError;
 
@@ -55,9 +65,12 @@ import static java.util.Locale.getDefault;
  *
  */
 public class CompassActivity extends Activity implements SensorEventListener,
-        GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener, PlaceSelectionListener {
+        GoogleApiClient.ConnectionCallbacks, LocationListener, GoogleApiClient.OnConnectionFailedListener,
+        PlaceSelectionListener, OnMapReadyCallback {
     /** Layout Elements */
     private ImageView compass;
+    private MapFragment mapFragment;
+    private CircleOverlay circleOverlay;
 
     /** Device Sensor Manager */
     private SensorManager mSensorManager;
@@ -71,12 +84,25 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_compass);
+
         App.currentContext = this.getApplicationContext();
+        setContentView(R.layout.activity_compass);
+
+//        todo: figure out how to make overlay
+//        CircleOverlay circleOverlay = new CircleOverlay(getApplicationContext());
+//        circleOverlay.setCircle(new RectF(0,0, 200, 300), 20);
+//
+//        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+//                ViewGroup.LayoutParams.WRAP_CONTENT);
+//        RelativeLayout mainRL = (RelativeLayout) findViewById(R.id.activity_compass_main_rl);
+//        mainRL.addView(circleOverlay, params);
 
         // init
         PubnubManager.init();
         this.compass = (ImageView) findViewById(R.id.compass);
+        this.mapFragment = (MapFragment) getFragmentManager().findFragmentById(R.id.map);
+        this.mapFragment.getMapAsync(this);
+
         PlaceAutocompleteFragment autocompleteFragment = (PlaceAutocompleteFragment)
                 getFragmentManager().findFragmentById(R.id.autocomplete_fragment);
         autocompleteFragment.setOnPlaceSelectedListener(this);
@@ -230,6 +256,17 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     public void onNewIntent(Intent intent) {
         this.setIntent(intent);
+    }
+
+    @Override
+    /** Handles map updating when ready */
+    public void onMapReady(GoogleMap googleMap) {
+        if(LocationService.isReady()) {
+            // update with current location
+            googleMap.addMarker(new MarkerOptions().position(
+                    new LatLng(LocationService.currentLocation.getLatitude(),
+                            LocationService.currentLocation.getLongitude())));
+        }
     }
 
     /**
