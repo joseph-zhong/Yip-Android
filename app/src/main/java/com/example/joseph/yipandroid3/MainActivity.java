@@ -8,6 +8,7 @@ import android.location.*;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -15,6 +16,9 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
+import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
+import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
@@ -42,8 +46,8 @@ import io.branch.referral.util.LinkProperties;
  * When the user taps Yip an Address, the app will open
  *
  */
-public class MainActivity extends Activity implements GoogleApiClient.ConnectionCallbacks, LocationListener,
-        GoogleApiClient.OnConnectionFailedListener {
+public class MainActivity extends Activity implements
+        ConnectionCallbacks, LocationListener, OnConnectionFailedListener {
     /** API Client */
     private GoogleApiClient mGoogleApiClient;
 
@@ -51,13 +55,12 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         initElements();
         App.currentContext = this.getApplicationContext();
 
-
-
-
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LocationService.REQUEST_LOCATION);
+        }
     }
 
     private void initElements() {
@@ -76,12 +79,13 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     /** Initialize Google API Client
      * Adds Location Services API */
     private synchronized void buildGoogleApiClient() {
-        if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(this)
+        if (this.mGoogleApiClient == null) {
+            this.mGoogleApiClient = new GoogleApiClient.Builder(this)
                     .addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
                     .addApi(LocationServices.API)
                     .build();
+            this.mGoogleApiClient.connect();
         }
     }
 
@@ -98,8 +102,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_CANCELED) {
             Toast.makeText(this, "No one selected", Toast.LENGTH_SHORT).show();
-        }
-        else if (requestCode == getResources().getInteger(R.integer.contact_success)) {
+        } else if (requestCode == getResources().getInteger(R.integer.contact_success)) {
             String contact = (String) data.getExtras().get(ContactsPickerActivity.KEY_CONTACT_NAME);
             String number = (String) data.getExtras().get(ContactsPickerActivity.KEY_PHONE_NUMBER);
             Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
@@ -112,7 +115,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
             startActivity(intent);
         }
         //Checking if the previous activity is launched on Branch Auto deep link.
-        else if(requestCode == getResources().getInteger(R.integer.deeplink_success)){
+        else if (requestCode == getResources().getInteger(R.integer.deeplink_success)) {
             //Decide here where to navigate when an auto deep linked activity finishes.
             finish();
         }
@@ -142,6 +145,7 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
             public void onLinkCreate(String url, BranchError error) {
                 if (error == null) {
                     Log.i(this.getClass().getSimpleName(), "got my Branch link to share: " + url);
+                    // todo: dynamic number
                     SmsService.sendSMS("4256287248", "Yip me! \n " + url);
                 }
             }
@@ -168,21 +172,23 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     @Override
     public void onConnected(Bundle bundle) {
         Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
-        LocationRequest mLocationRequest = LocationService.createLocationRequest();
-        if (ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Call ActivityCompat#requestPermissions
-            // to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            return;
-        }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest,
-                (com.google.android.gms.location.LocationListener) this);
+        this.attemptLocationUpdates();
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case LocationService.REQUEST_LOCATION: {
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    this.attemptLocationUpdates();
+                } else {
+                    // permission denied, boo! Disable the
+                    // functionality that depends on this permission.
+                }
+                return;
+            }
+        }
+    }
     @Override
     public void onConnectionSuspended(int i) {
         Log.d(this.getClass().getSimpleName(), "Connection to Google API suspended");
@@ -190,23 +196,9 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
 
     @Override
     public void onLocationChanged(Location location) {
-        Log.i(this.getClass().getSimpleName(), "Location set!");
+        Log.i(this.getClass().getSimpleName(), "Location set: "
+                + location.getLatitude() + " " + location.getLongitude());
         LocationService.currentLocation = location;
-    }
-
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-        // do nothing
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-        // do nothing
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-        // do nothing
     }
 
     @Override
@@ -245,5 +237,21 @@ public class MainActivity extends Activity implements GoogleApiClient.Connection
     @Override
     public void onNewIntent(Intent intent) {
         this.setIntent(intent);
+    }
+
+    protected void attemptLocationUpdates() {
+        LocationRequest mLocationRequest = LocationService.createLocationRequest();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LocationService.REQUEST_LOCATION);
+            return;
+        }
+        else {
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest,
+                    this);
+        }
     }
 }

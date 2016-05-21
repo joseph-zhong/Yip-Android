@@ -1,6 +1,7 @@
 package com.example.joseph.yipandroid3;
 
 import android.Manifest;
+import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
@@ -36,7 +37,7 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     private GoogleApiClient googleApiClient;
 
     /** Activity accessor for Android specific information */
-    private AppCompatActivity activity;
+    private Activity activity;
 
     /** User's most recent location*/
     private Location mostRecentLoc;
@@ -51,7 +52,7 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     /**
      * Constructor
      * @param activity The activity that's accessing the LocationService */
-    public LocationService(AppCompatActivity activity) {
+    public LocationService(Activity activity) {
         this.activity = activity;
         this.googleApiClient = new GoogleApiClient.Builder(activity)
                 .addConnectionCallbacks(this)

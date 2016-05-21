@@ -42,6 +42,8 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
@@ -266,7 +268,9 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Handles map updating when ready */
     public void onMapReady(GoogleMap googleMap) {
+        Log.i(this.getLocalClassName(), "Map Ready");
         this.mMap = googleMap;
+        this.mMap.getUiSettings().setMyLocationButtonEnabled(true);
         this.mMap.getUiSettings().setRotateGesturesEnabled(false);
 
         if(LocationService.isReady()) {
@@ -274,7 +278,8 @@ public class CompassActivity extends Activity implements SensorEventListener,
             // todo: add range and orientation
             this.mMap.addMarker(new MarkerOptions()
                     .position(new LatLng(LocationService.currentLocation.getLatitude(),
-                            LocationService.currentLocation.getLongitude())));
+                            LocationService.currentLocation.getLongitude()))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
             // todo: zoom based on distance
             this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(LocationService.currentLocation.getLatitude(),
@@ -282,6 +287,18 @@ public class CompassActivity extends Activity implements SensorEventListener,
 //            CameraPosition oldPos = googleMap.getCameraPosition();
 //            CameraPosition pos = CameraPosition.builder(oldPos).bearing(CompassManager.getBearing()).build();
 //            googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
+        }
+        else {
+            this.mMap.addMarker(new MarkerOptions()
+                    .position(new LatLng(LocationService.currentLocation.getLatitude(),
+                            LocationService.currentLocation.getLongitude()))
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+
+
+            // Add a marker in Sydney and move the camera
+            LatLng sydney = new LatLng(-34, 151);
+            this.mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+            this.mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
         }
     }
 
@@ -347,6 +364,8 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Location Changed Handler */
     public void onLocationChanged(Location location) {
+        Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude()
+                + ", " + location.getLongitude());
         // update position and declination
         LocationService.currentLocation = location;
         CompassManager.setDeclination();
@@ -367,8 +386,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 // todo: figure what the heck is going on
             }
         }
-        Log.i(this.getClass().getSimpleName(), "Current Location: " + location.getLatitude()
-                + ", " + location.getLongitude());
     }
 
     /**

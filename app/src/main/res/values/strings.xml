@@ -9,4 +9,5 @@
     <string name="uri_scheme_secure">https</string>
     <string name="uri_scheme_nothappy">fuckyoubranch</string>
     <string name="fallback_url">http://josephzhong.me</string>
+    <string name="title_activity_maps">Map</string>
 </resources>
