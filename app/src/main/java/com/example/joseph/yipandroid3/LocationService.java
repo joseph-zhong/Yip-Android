@@ -15,6 +15,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.model.LatLng;
 
 import org.json.JSONException;
 
@@ -164,5 +165,19 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
         l.setLatitude(lat);
         l.setLongitude(lng);
         targetLocation = l;
+    }
+
+    public static LatLng currLocToLatLng() {
+        return LocToLatLng(currentLocation);
+    }
+
+    public static LatLng targLocToLatLng() {
+        return LocToLatLng(targetLocation);
+    }
+
+    /** Helper function to quickly convert from Location to LatLng
+     * @param loc Location to retrieve LatLng Position*/
+    public static LatLng LocToLatLng(Location loc) {
+        return new LatLng(loc.getLatitude(), loc.getLongitude());
     }
 }

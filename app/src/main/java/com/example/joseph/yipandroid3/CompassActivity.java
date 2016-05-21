@@ -37,11 +37,15 @@ import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.Places;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
 import com.google.android.gms.location.places.ui.PlaceSelectionListener;
+import com.google.android.gms.maps.CameraUpdate;
+import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.pubnub.api.Callback;
 import com.pubnub.api.PubnubError;
@@ -71,6 +75,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
     private ImageView compass;
     private MapFragment mapFragment;
     private CircleOverlay circleOverlay;
+    private GoogleMap mMap;
 
     /** Device Sensor Manager */
     private SensorManager mSensorManager;
@@ -261,11 +266,22 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Handles map updating when ready */
     public void onMapReady(GoogleMap googleMap) {
+        this.mMap = googleMap;
+        this.mMap.getUiSettings().setRotateGesturesEnabled(false);
+
         if(LocationService.isReady()) {
             // update with current location
-            googleMap.addMarker(new MarkerOptions().position(
-                    new LatLng(LocationService.currentLocation.getLatitude(),
+            // todo: add range and orientation
+            this.mMap.addMarker(new MarkerOptions()
+                    .position(new LatLng(LocationService.currentLocation.getLatitude(),
                             LocationService.currentLocation.getLongitude())));
+            // todo: zoom based on distance
+            this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
+                    new LatLng(LocationService.currentLocation.getLatitude(),
+                            LocationService.currentLocation.getLongitude()), 10));
+//            CameraPosition oldPos = googleMap.getCameraPosition();
+//            CameraPosition pos = CameraPosition.builder(oldPos).bearing(CompassManager.getBearing()).build();
+//            googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
         }
     }
 
@@ -331,7 +347,10 @@ public class CompassActivity extends Activity implements SensorEventListener,
     @Override
     /** Location Changed Handler */
     public void onLocationChanged(Location location) {
+        // update position and declination
         LocationService.currentLocation = location;
+        CompassManager.setDeclination();
+        CompassManager.setAzimuth();
         if(PubnubManager.isConnected()) {
             try {
                 PubnubManager.sendLocation(location);
@@ -356,12 +375,24 @@ public class CompassActivity extends Activity implements SensorEventListener,
      * Update the Compass orientation based on sensor changes
      * pre: Location, Target, and Azimuth must be set */
     private void update() {
-        float direction = CompassManager.calculateDirection();
-        RotateAnimation ra = new RotateAnimation(CompassManager.currentDegree, -direction, Animation.RELATIVE_TO_SELF,
-                0.5f, Animation.RELATIVE_TO_SELF, 0.5f);
-        ra.setDuration(210);
-        ra.setFillAfter(true);
-        this.compass.startAnimation(ra);
-        CompassManager.currentDegree = -direction;
+        float bearing = CompassManager.getBearing();
+//        changeCamera(CameraUpdateFactory.newLatLngBounds(
+//                new LatLngBounds(LocationService.LocToLatLng(LocationService.currentLocation),
+//                        LocationService.LocToLatLng(LocationService.targetLocation), 50));
+
+        changeCamera(CameraUpdateFactory.newLatLngBounds(
+                LatLngBounds.builder()
+                        .include(LocationService.currLocToLatLng())
+                        .include(LocationService.targLocToLatLng())
+                        .build(),10), null);
+    }
+
+    /**
+     * Change the camera position by moving or animating the camera depending on the state of the
+     * animate toggle button.
+     */
+    private void changeCamera(CameraUpdate update, GoogleMap.CancelableCallback callback) {
+        // The duration must be strictly positive so we make it at least 1.
+        mMap.animateCamera(update, Math.max(210, 1), callback);
     }
 }

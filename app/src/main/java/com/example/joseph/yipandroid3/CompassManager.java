@@ -3,7 +3,6 @@ package com.example.joseph.yipandroid3;
 import android.hardware.GeomagneticField;
 import android.hardware.SensorManager;
 import android.location.Location;
-import android.support.v7.app.AppCompatActivity;
 
 import org.jscience.mathematics.number.Float64;
 import org.jscience.mathematics.vector.Float64Matrix;
@@ -17,27 +16,50 @@ public class CompassManager {
     public static float[] gravityVals;
     public static float[] geomagneticVals;
 
+    /** Instantaneous degress of current position */
+    private static float declination;
+
     /** Heading Degree to north */
     public static float azimuth;
 
     /** Current Orientation */
     public static float currentDegree = 0f;
 
+    /** Constant frequency for Low-Pass Filter */
     private static final float ALPHA = 0.25f; // if ALPHA = 1 OR 0, no filter applies
 
-    public static float calculateDirection() {
-        GeomagneticField geoField = new GeomagneticField(
+    /** Declination
+     * @return float representing degrees of instantaneous Location position */
+    public static void setDeclination() {
+        declination = new GeomagneticField(
                 (float) LocationService.currentLocation.getLatitude(),
                 (float) LocationService.currentLocation.getLongitude(),
                 (float) LocationService.currentLocation.getAltitude(),
-                System.currentTimeMillis());
-        calculateAzimuth();
-        float newAzimuth = (float) Math.toDegrees((double) CompassManager.azimuth);
-        newAzimuth += geoField.getDeclination(); // converts magnetic north into true north
-        float bearing = LocationService.currentLocation.bearingTo(LocationService.targetLocation);
-        return newAzimuth - bearing;
+                System.currentTimeMillis()).getDeclination();
     }
 
+    /** Calculates Azimuth */
+    public static void setAzimuth() {
+        float R[] = new float[9];
+        float I[] = new float[9];
+        boolean success = SensorManager.getRotationMatrix(R, I, CompassManager.gravityVals,
+                CompassManager.geomagneticVals);
+        if (success) {
+            float orientation[] = new float[3];
+            SensorManager.getOrientation(R, orientation);
+            azimuth = orientation[0]; // orientation contains: azimuth, pitch and roll
+        }
+    }
+
+    /** Bearing
+     * @return float representing bearing from curent position */
+    public static float getBearing() {
+        return (float) Math.toDegrees((double) azimuth) + declination
+                - LocationService.currentLocation.bearingTo(LocationService.targetLocation);
+    }
+
+    /** Ready
+     * @return true when both accelerometer and geomagnetic data has been collected */
     public static boolean isReady() {
         return CompassManager.gravityVals != null && CompassManager.geomagneticVals != null;
     }
@@ -97,18 +119,6 @@ public class CompassManager {
 
     private boolean sentFirstLocation;
     private boolean terminated;
-
-    /** Calculates Azimuth */
-    private static void calculateAzimuth() {
-        float R[] = new float[9];
-        float I[] = new float[9];
-        boolean success = SensorManager.getRotationMatrix(R, I, CompassManager.gravityVals, CompassManager.geomagneticVals);
-        if (success) {
-            float orientation[] = new float[3];
-            SensorManager.getOrientation(R, orientation);
-            CompassManager.azimuth = orientation[0]; // orientation contains: azimuth, pitch and roll
-        }
-    }
 
     /**
      * Lowpass Filter
