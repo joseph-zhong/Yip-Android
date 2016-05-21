@@ -150,7 +150,12 @@ public class CompassActivity extends Activity implements SensorEventListener,
             Double lat = addresses.get(0).getLatitude();
             Double lng = addresses.get(0).getLongitude();
 
-            LocationService.setTargetLocation(lat, lng);
+            LocationService.setTargetLocation(lat, lng, 0, 0);
+            this.resetMarkers();
+            this.mMap.addMarker(new MarkerOptions()
+                    .position(LocationService.targLocToLatLng())
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -173,6 +178,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
                     .addApi(LocationServices.API)
                     .addApi(Places.GEO_DATA_API)
                     .build();
+//            this.mGoogleApiClient.connect();
         }
     }
 
@@ -270,8 +276,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
     public void onMapReady(GoogleMap googleMap) {
         Log.i(this.getLocalClassName(), "Map Ready");
         this.mMap = googleMap;
-        this.mMap.getUiSettings().setMyLocationButtonEnabled(true);
-        this.mMap.getUiSettings().setRotateGesturesEnabled(false);
+//        this.mMap.getUiSettings().setAllGesturesEnabled(false);
 
         if(LocationService.isReady()) {
             // update with current location
@@ -283,10 +288,8 @@ public class CompassActivity extends Activity implements SensorEventListener,
             // todo: zoom based on distance
             this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
                     new LatLng(LocationService.currentLocation.getLatitude(),
-                            LocationService.currentLocation.getLongitude()), 10));
-//            CameraPosition oldPos = googleMap.getCameraPosition();
-//            CameraPosition pos = CameraPosition.builder(oldPos).bearing(CompassManager.getBearing()).build();
-//            googleMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
+                            LocationService.currentLocation.getLongitude()), LocationService.ZOOM_LEVEL_STREET));
+
         }
         else {
             this.mMap.addMarker(new MarkerOptions()
@@ -294,11 +297,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
                             LocationService.currentLocation.getLongitude()))
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
 
-
-            // Add a marker in Sydney and move the camera
-            LatLng sydney = new LatLng(-34, 151);
-            this.mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-            this.mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+            this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LocationService.currLocToLatLng(), LocationService.ZOOM_LEVEL_STREET));
         }
     }
 
@@ -328,27 +327,13 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // not in use
+        // todo: incorporate this into angle detection
     }
 
     @Override
     public void onConnected(Bundle connectionHint) {
         Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
-        LocationRequest mLocationRequest = LocationService.createLocationRequest();
-        if (ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
-        LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
+
     }
 
     @Override
@@ -369,7 +354,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         // update position and declination
         LocationService.currentLocation = location;
         CompassManager.setDeclination();
-        CompassManager.setAzimuth();
+
         if(PubnubManager.isConnected()) {
             try {
                 PubnubManager.sendLocation(location);
@@ -392,24 +377,37 @@ public class CompassActivity extends Activity implements SensorEventListener,
      * Update the Compass orientation based on sensor changes
      * pre: Location, Target, and Azimuth must be set */
     private void update() {
-        float bearing = CompassManager.getBearing();
-//        changeCamera(CameraUpdateFactory.newLatLngBounds(
-//                new LatLngBounds(LocationService.LocToLatLng(LocationService.currentLocation),
-//                        LocationService.LocToLatLng(LocationService.targetLocation), 50));
+        Log.i(this.getLocalClassName(), "Dec:" + CompassManager.declination + " Azi: " + CompassManager.azimuth + " Bear: + " + CompassManager.getBearing());
+        CompassManager.setAzimuth();
+        CameraPosition oldPos = this.mMap.getCameraPosition();
+        CameraPosition pos = CameraPosition.builder(oldPos)
+                .bearing(CompassManager.getBearing())
+                .target(LocationService.currLocToLatLng())
+                .build();
+        this.changeCamera(CameraUpdateFactory.newCameraPosition(pos), null);
 
-        changeCamera(CameraUpdateFactory.newLatLngBounds(
-                LatLngBounds.builder()
-                        .include(LocationService.currLocToLatLng())
-                        .include(LocationService.targLocToLatLng())
-                        .build(),10), null);
+//        this.changeCamera(CameraUpdateFactory.newLatLngBounds(
+//                LatLngBounds.builder()
+//                        .include(LocationService.currLocToLatLng())
+//                        .include(LocationService.targLocToLatLng())
+//                        .build(), 50), null);
     }
 
     /**
      * Change the camera position by moving or animating the camera depending on the state of the
      * animate toggle button.
+     * pre: Duration must be strictly positive so we make it at least 1.
      */
     private void changeCamera(CameraUpdate update, GoogleMap.CancelableCallback callback) {
-        // The duration must be strictly positive so we make it at least 1.
-        mMap.animateCamera(update, Math.max(210, 1), callback);
+//        Log.i(this.getLocalClassName(), "Animating Camera");
+        this.mMap.animateCamera(update, Math.max(210, 1), callback);
+    }
+
+    /** Helper to handle clearing target markers */
+    private void resetMarkers() {
+        this.mMap.clear();
+        this.mMap.addMarker(new MarkerOptions()
+                .position(LocationService.currLocToLatLng())
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
     }
 }

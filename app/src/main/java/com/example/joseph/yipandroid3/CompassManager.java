@@ -17,7 +17,7 @@ public class CompassManager {
     public static float[] geomagneticVals;
 
     /** Instantaneous degress of current position */
-    private static float declination;
+    public static float declination;
 
     /** Heading Degree to north */
     public static float azimuth;

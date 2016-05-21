@@ -172,18 +172,18 @@ public class MainActivity extends Activity implements
     @Override
     public void onConnected(Bundle bundle) {
         Log.i(this.getClass().getSimpleName(), "Google Location Services Connected");
-        this.attemptLocationUpdates();
+        LocationService.attemptLocationUpdates(this.mGoogleApiClient, this);
     }
 
     @Override
+    /** Captures Request Permission Results */
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
             case LocationService.REQUEST_LOCATION: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    this.attemptLocationUpdates();
+                    LocationService.attemptLocationUpdates(mGoogleApiClient, this);
                 } else {
-                    // permission denied, boo! Disable the
-                    // functionality that depends on this permission.
+                    // todo: ??? what to do w/o permissions :(
                 }
                 return;
             }
@@ -237,21 +237,5 @@ public class MainActivity extends Activity implements
     @Override
     public void onNewIntent(Intent intent) {
         this.setIntent(intent);
-    }
-
-    protected void attemptLocationUpdates() {
-        LocationRequest mLocationRequest = LocationService.createLocationRequest();
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LocationService.REQUEST_LOCATION);
-            return;
-        }
-        else {
-            LocationServices.FusedLocationApi.requestLocationUpdates(
-                    mGoogleApiClient, mLocationRequest,
-                    this);
-        }
     }
 }

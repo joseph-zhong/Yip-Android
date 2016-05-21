@@ -3,6 +3,7 @@ package com.example.joseph.yipandroid3;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.location.Address;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
@@ -29,6 +30,12 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
     /** Request code for approving location permissions */
     public static final int REQUEST_LOCATION = 2;
+
+    public static final int ZOOM_LEVEL_WORLD = 1;
+    public static final int ZOOM_LEVEL_CONT = 5;
+    public static final int ZOOM_LEVEL_CITY = 10;
+    public static final int ZOOM_LEVEL_STREET = 15;
+    public static final int ZOOM_LEVEL_BUILDING = 20;
 
     /** Location Requesting Manager */
     private LocationRequest locationRequest;
@@ -71,7 +78,7 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this.activity,
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            this.requestLocPermissions();
+            this.requestLocPermissions(this.activity);
         }
         this.mostRecentLoc = LocationServices.FusedLocationApi.getLastLocation(this.googleApiClient);
         return getMostRecentLoc();
@@ -101,9 +108,26 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     protected void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this.activity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
                 && ActivityCompat.checkSelfPermission(this.activity, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            this.requestLocPermissions();
+            this.requestLocPermissions(this.activity);
         }
         LocationServices.FusedLocationApi.requestLocationUpdates(this.googleApiClient, this.locationRequest, this);
+    }
+
+    /**  */
+    protected static void attemptLocationUpdates(GoogleApiClient mGoogleApiClient, Activity activity) {
+        LocationRequest mLocationRequest = LocationService.createLocationRequest();
+        if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity,
+                Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(activity, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+                    LocationService.REQUEST_LOCATION);
+            requestLocPermissions(activity);
+        }
+        else {
+            LocationServices.FusedLocationApi.requestLocationUpdates(
+                    mGoogleApiClient, mLocationRequest,
+                    (LocationListener) activity);
+        }
     }
 
     /** Create Location Request */
@@ -121,8 +145,8 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     }
 
     /** Requests for location permissions if necessary */
-    private void requestLocPermissions() {
-        ActivityCompat.requestPermissions(this.activity,
+    private static void requestLocPermissions(Activity activity) {
+        ActivityCompat.requestPermissions(activity,
                 new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
                 REQUEST_LOCATION);
     }
@@ -161,11 +185,17 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
         this.oMostRecentLoc = l;
     }
 
-    public static void setTargetLocation(double lat, double lng) {
-        Location l = new Location("");
+    public static void setTargetLocation(Location l) {
+        targetLocation = l;
+    }
+
+    public static void setTargetLocation(double lat, double lng, double alt, float acc) {
+        Location l = new Location("Target Location");
         l.setLatitude(lat);
         l.setLongitude(lng);
-        targetLocation = l;
+        l.setAltitude(alt);
+        l.setAccuracy(acc);
+        setTargetLocation(l);
     }
 
     public static LatLng currLocToLatLng() {
@@ -176,9 +206,17 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
         return LocToLatLng(targetLocation);
     }
 
-    /** Helper function to quickly convert from Location to LatLng
+    /** Helper to quickly convert from Location to LatLng
      * @param loc Location to retrieve LatLng Position*/
     public static LatLng LocToLatLng(Location loc) {
         return new LatLng(loc.getLatitude(), loc.getLongitude());
+    }
+
+    /** Helper to convert Address to Location */
+    public static Location AddressToLocation(Address add) {
+        Location l = new Location("Unknown");
+        l.setLatitude(add.getLatitude());
+        l.setLongitude(add.getLatitude());
+        return l;
     }
 }
