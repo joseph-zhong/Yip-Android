@@ -1,14 +1,11 @@
 package com.example.joseph.yipandroid3;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.FragmentManager;
 import android.app.FragmentTransaction;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.graphics.RectF;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -18,20 +15,13 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.util.AttributeSet;
 import android.util.Log;
-import android.view.ViewGroup;
-import android.view.animation.Animation;
-import android.view.animation.RotateAnimation;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.Place;
 import com.google.android.gms.location.places.Places;
@@ -42,15 +32,10 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.OnMapReadyCallback;
-import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
-import com.google.android.gms.maps.model.Circle;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.pubnub.api.Callback;
-import com.pubnub.api.PubnubError;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -155,7 +140,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
             this.mMap.addMarker(new MarkerOptions()
                     .position(LocationService.targLocToLatLng())
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
-
+            updateBounds();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -214,6 +199,11 @@ public class CompassActivity extends Activity implements SensorEventListener,
         this.mSensorManager.registerListener(
                 this,
                 this.mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD),
+                SensorManager.SENSOR_DELAY_UI
+        );
+        this.mSensorManager.registerListener(
+                this,
+                this.mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR),
                 SensorManager.SENSOR_DELAY_UI
         );
     }
@@ -276,19 +266,18 @@ public class CompassActivity extends Activity implements SensorEventListener,
     public void onMapReady(GoogleMap googleMap) {
         Log.i(this.getLocalClassName(), "Map Ready");
         this.mMap = googleMap;
+
 //        this.mMap.getUiSettings().setAllGesturesEnabled(false);
 
         if(LocationService.isReady()) {
             // update with current location
             // todo: add range and orientation
             this.mMap.addMarker(new MarkerOptions()
-                    .position(new LatLng(LocationService.currentLocation.getLatitude(),
-                            LocationService.currentLocation.getLongitude()))
+                    .position(LocationService.currLocToLatLng())
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
             // todo: zoom based on distance
             this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(
-                    new LatLng(LocationService.currentLocation.getLatitude(),
-                            LocationService.currentLocation.getLongitude()), LocationService.ZOOM_LEVEL_STREET));
+                    LocationService.currLocToLatLng(), LocationService.ZOOM_LEVEL_STREET));
 
         }
         else {
@@ -316,13 +305,38 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-            CompassManager.gravityVals = CompassManager.lowPass(event.values.clone(), CompassManager.gravityVals);
-        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD)
-            CompassManager.geomagneticVals = CompassManager.lowPass(event.values.clone(), CompassManager.geomagneticVals);
-        if (CompassManager.isReady() && LocationService.isReady()) {
-            update();
+        boolean avg = false;
+        SensorEvent prevEvt = null;
+        float b1 = 0f;
+        float b2 = 0f;
+        if(LocationService.hasCurrentLocation() && LocationService.hasTargetLocation()
+                && event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            CompassManager.rotationVals = CompassManager.lowPass(event.values.clone(), CompassManager.rotationVals);
+            Log.i(this.getLocalClassName(), "Bear_Rotation: " + CompassManager.getBearingFromRotEvent(event));
+            prevEvt = event;
+            avg = true;
+            b1 = CompassManager.getBearingFromRotEvent(event);
+//            update(b1);
         }
+        if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            CompassManager.gravityVals = CompassManager.lowPass(event.values.clone(), CompassManager.gravityVals);
+        }
+        if(event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+            CompassManager.geomagneticVals = CompassManager.lowPass(event.values.clone(), CompassManager.geomagneticVals);
+        }
+        if(CompassManager.isReady() && LocationService.isReady()) {
+            CompassManager.setAzimuth();
+            b2 = CompassManager.getBearing();
+            Log.i(this.getLocalClassName(), "Bear_Azimuth: " + b2);
+            if(!avg) { avg = !avg; }
+            update(b2);
+        }
+
+        if(avg && prevEvt != null) {
+            Log.i(this.getLocalClassName(), "Bear_Avg: " + ((b1 + b2) / 2));
+//            update(CompassManager.getBearingFromAvg(b1, b2));
+        }
+
     }
 
     @Override
@@ -375,9 +389,9 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
     /**
      * Update the Compass orientation based on sensor changes
-     * pre: Location, Target, and Azimuth must be set */
+     * pre: Location, Target, Declination must be set */
     private void update() {
-        Log.i(this.getLocalClassName(), "Dec:" + CompassManager.declination + " Azi: " + CompassManager.azimuth + " Bear: + " + CompassManager.getBearing());
+//        Log.i(this.getLocalClassName(), "Dec:" + CompassManager.declination + " Azi: " + CompassManager.azimuth + " Bear: + " + CompassManager.getBearing());
         CompassManager.setAzimuth();
         CameraPosition oldPos = this.mMap.getCameraPosition();
         CameraPosition pos = CameraPosition.builder(oldPos)
@@ -385,12 +399,15 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 .target(LocationService.currLocToLatLng())
                 .build();
         this.changeCamera(CameraUpdateFactory.newCameraPosition(pos), null);
+    }
 
-//        this.changeCamera(CameraUpdateFactory.newLatLngBounds(
-//                LatLngBounds.builder()
-//                        .include(LocationService.currLocToLatLng())
-//                        .include(LocationService.targLocToLatLng())
-//                        .build(), 50), null);
+    private void update(float bearing) {
+        CameraPosition oldPos = this.mMap.getCameraPosition();
+        CameraPosition pos = CameraPosition.builder(oldPos)
+                .bearing(bearing)
+                .target(LocationService.currLocToLatLng())
+                .build();
+        this.changeCamera(CameraUpdateFactory.newCameraPosition(pos), null);
     }
 
     /**
@@ -409,5 +426,29 @@ public class CompassActivity extends Activity implements SensorEventListener,
         this.mMap.addMarker(new MarkerOptions()
                 .position(LocationService.currLocToLatLng())
                 .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+    }
+
+    /** Helper to update camera view Bounds*/
+    private void updateBounds() {
+        if(isCurrentLocDisplayed() && isTargLocDisplayed()) {
+            Log.i(this.getLocalClassName(), "Points of interest captured");
+        }
+        else {
+            Log.i(this.getLocalClassName(), "Points of interest not captured");
+            while(!(isCurrentLocDisplayed() && isTargLocDisplayed())) {
+                this.mMap.animateCamera(CameraUpdateFactory.zoomOut());
+            }
+
+        }
+    }
+
+    /** Return whether map displays  */
+    private boolean isTargLocDisplayed() {
+        return this.mMap.getProjection().getVisibleRegion().latLngBounds.contains(LocationService.targLocToLatLng());
+    }
+
+    /** */
+    private boolean isCurrentLocDisplayed() {
+        return this.mMap.getProjection().getVisibleRegion().latLngBounds.contains(LocationService.currLocToLatLng());
     }
 }

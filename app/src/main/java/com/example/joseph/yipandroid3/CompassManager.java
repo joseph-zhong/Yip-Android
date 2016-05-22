@@ -1,6 +1,7 @@
 package com.example.joseph.yipandroid3;
 
 import android.hardware.GeomagneticField;
+import android.hardware.SensorEvent;
 import android.hardware.SensorManager;
 import android.location.Location;
 
@@ -15,6 +16,7 @@ public class CompassManager {
     /** Data arrays for each sensor */
     public static float[] gravityVals;
     public static float[] geomagneticVals;
+    public static float[] rotationVals = new float[16];
 
     /** Instantaneous degress of current position */
     public static float declination;
@@ -49,6 +51,18 @@ public class CompassManager {
             SensorManager.getOrientation(R, orientation);
             azimuth = orientation[0]; // orientation contains: azimuth, pitch and roll
         }
+    }
+
+
+    public static float getBearingFromAvg(float v1, float v2) {
+        return (v1 + v2) / 2;
+    }
+
+    public static float getBearingFromRotEvent(SensorEvent event) {
+        SensorManager.getRotationMatrixFromVector(rotationVals, event.values);
+        float[] orientation = new float[3];
+        SensorManager.getOrientation(rotationVals, orientation);
+        return (float) Math.toDegrees(orientation[0] + declination);
     }
 
     /** Bearing

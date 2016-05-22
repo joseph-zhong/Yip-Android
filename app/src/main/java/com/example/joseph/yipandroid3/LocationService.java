@@ -100,6 +100,10 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
         return currentLocation != null;
     }
 
+    public static boolean hasTargetLocation() {
+        return targetLocation != null;
+    }
+
     public static boolean isReady() {
         return LocationService.currentLocation != null && LocationService.targetLocation != null;
     }
