@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.*;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -20,11 +21,12 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.GoogleApiClient.ConnectionCallbacks;
 import com.google.android.gms.common.api.GoogleApiClient.OnConnectionFailedListener;
 import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 
 import org.json.JSONException;
 import org.json.JSONObject;
+
+import java.util.ArrayList;
 
 import io.branch.indexing.BranchUniversalObject;
 import io.branch.referral.Branch;
@@ -63,8 +65,18 @@ public class MainActivity extends Activity implements
         initElements();
         App.currentContext = this.getApplicationContext();
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LocationService.REQUEST_LOCATION);
+        ArrayList<String> permissionsToReq = new ArrayList<>();
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToReq.add(Manifest.permission_group.LOCATION);
+        }
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToReq.add(Manifest.permission_group.CONTACTS);
+        }
+        if(ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToReq.add(Manifest.permission.SEND_SMS);
+        }
+        if(!permissionsToReq.isEmpty()) {
+            ActivityCompat.requestPermissions(this, permissionsToReq.toArray(new String[0]), LocationService.REQUEST_LOCATION_ID);
         }
     }
 
@@ -78,9 +90,9 @@ public class MainActivity extends Activity implements
         yipAnAddressBtn.setOnClickListener(yipAnAddressListener);
         yipAnAddressBtn.setVisibility(View.INVISIBLE);
 
-//        Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
-//        rememberLocationBtn.setOnClickListener(rememberLocationListener);
-//        rememberLocationBtn.setVisibility(View.INVISIBLE);
+        Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
+        rememberLocationBtn.setOnClickListener(rememberLocationListener);
+        rememberLocationBtn.setVisibility(View.INVISIBLE);
 
         buildGoogleApiClient();
     }
@@ -116,7 +128,7 @@ public class MainActivity extends Activity implements
             String number = (String) data.getExtras().get(ContactsPickerActivity.KEY_PHONE_NUMBER);
             Toast.makeText(this, "yip request sent to : " + contact + "!", Toast.LENGTH_SHORT).show();
 
-            sendSMSHelper();
+            sendSMSHelper(number);
 
             Intent intent = new Intent(getApplicationContext(), CompassActivity.class);
             intent.putExtra("mode", App.YipType.TWO_USERS_YIP);
@@ -131,9 +143,8 @@ public class MainActivity extends Activity implements
     }
 
     /**
-     * Helper to create the custom
-     */
-    private void sendSMSHelper() {
+     * Helper to create the custom */
+    private void sendSMSHelper(String number) {
         BranchUniversalObject branchUniversalObject = new BranchUniversalObject()
                 .setCanonicalIdentifier("Yip Request")
                 .setTitle("Yip me!")
@@ -147,7 +158,7 @@ public class MainActivity extends Activity implements
                 .setChannel("facebook")
                 .setFeature("sharing")
 //                .addControlParameter("$fallback_url", getString(R.string.fallback_url));
-                .addControlParameter("$fallback_url", "zzzz.com");
+                .addControlParameter("$fallback_url", "http://josephzhong.me");
 
         branchUniversalObject.generateShortUrl(this, linkProperties, new Branch.BranchLinkCreateListener() {
             @Override
@@ -156,6 +167,7 @@ public class MainActivity extends Activity implements
                     Log.i(this.getClass().getSimpleName(), "got my Branch link to share: " + url);
                     // todo: dynamic number
                     SmsService.sendSMS("4256287248", "Yip me! \n " + url);
+//                    SmsService.sendSMS(number, "Yip me! \n " + url);
                 }
             }
         });
@@ -188,7 +200,7 @@ public class MainActivity extends Activity implements
     /** Captures Request Permission Results */
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         switch (requestCode) {
-            case LocationService.REQUEST_LOCATION: {
+            case LocationService.REQUEST_LOCATION_ID: {
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     LocationService.attemptLocationUpdates(mGoogleApiClient, this);
                 } else {

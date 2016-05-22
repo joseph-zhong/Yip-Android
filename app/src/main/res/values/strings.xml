@@ -7,7 +7,7 @@
     <string name="uri_host">yipAndroid3.com</string>
     <string name="uri_scheme">http</string>
     <string name="uri_scheme_secure">https</string>
-    <string name="uri_scheme_nothappy">fuckyoubranch</string>
+    <string name="uri_scheme_nothappy">yipAndroid</string>
     <string name="fallback_url">http://josephzhong.me</string>
     <string name="title_activity_maps">Map</string>
 </resources>

@@ -19,8 +19,6 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
 
-import org.json.JSONException;
-
 /**
  * Created by Joseph on 12/19/15.
  * Updated by Joseph on 12/19/15.
@@ -29,7 +27,7 @@ import org.json.JSONException;
 public class LocationService extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
         GoogleApiClient.OnConnectionFailedListener, LocationListener {
     /** Request code for approving location permissions */
-    public static final int REQUEST_LOCATION = 2;
+    public static final int REQUEST_LOCATION_ID = 2;
 
     public static final int ZOOM_LEVEL_WORLD = 1;
     public static final int ZOOM_LEVEL_CONT = 5;
@@ -124,7 +122,7 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
                 != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity,
                 Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(activity, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
-                    LocationService.REQUEST_LOCATION);
+                    LocationService.REQUEST_LOCATION_ID);
             requestLocPermissions(activity);
         }
         else {
@@ -152,7 +150,7 @@ public class LocationService extends AppCompatActivity implements GoogleApiClien
     private static void requestLocPermissions(Activity activity) {
         ActivityCompat.requestPermissions(activity,
                 new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
-                REQUEST_LOCATION);
+                REQUEST_LOCATION_ID);
     }
 
     /** Upon connecting to Google Play Services */

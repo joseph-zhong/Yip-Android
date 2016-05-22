@@ -31,6 +31,8 @@ import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 
 public class ContactsPickerActivity extends AppCompatActivity implements OnContactSelectedListener {
+	public static final int CONTACT_REQUEST_ID = 301;
+
     public static final String SELECTED_CONTACT_ID 	= "contact_id";
 	public static final String KEY_PHONE_NUMBER 	= "phone_number";
 	public static final String KEY_CONTACT_NAME 	= "contact_name";
@@ -47,7 +49,7 @@ public class ContactsPickerActivity extends AppCompatActivity implements OnConta
 		FragmentManager 		fragmentManager 	= this.getSupportFragmentManager();
 		FragmentTransaction 	fragmentTransaction = fragmentManager.beginTransaction();
 		ContactsListFragment 	fragment 			= new ContactsListFragment();
-		
+
 		fragmentTransaction.replace(R.id.fragment_container, fragment);
 		fragmentTransaction.commit();
 
