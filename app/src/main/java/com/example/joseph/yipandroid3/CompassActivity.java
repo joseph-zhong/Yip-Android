@@ -281,12 +281,14 @@ public class CompassActivity extends Activity implements SensorEventListener,
 
         }
         else {
-            this.mMap.addMarker(new MarkerOptions()
-                    .position(new LatLng(LocationService.currentLocation.getLatitude(),
-                            LocationService.currentLocation.getLongitude()))
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+            if(LocationService.hasCurrentLocation()) {
+                this.mMap.addMarker(new MarkerOptions()
+                        .position(new LatLng(LocationService.currentLocation.getLatitude(),
+                                LocationService.currentLocation.getLongitude()))
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
 
-            this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LocationService.currLocToLatLng(), LocationService.ZOOM_LEVEL_STREET));
+                this.mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(LocationService.currLocToLatLng(), LocationService.ZOOM_LEVEL_STREET));
+            }
         }
     }
 
@@ -312,7 +314,7 @@ public class CompassActivity extends Activity implements SensorEventListener,
         if(LocationService.hasCurrentLocation() && LocationService.hasTargetLocation()
                 && event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
             CompassManager.rotationVals = CompassManager.lowPass(event.values.clone(), CompassManager.rotationVals);
-            Log.i(this.getLocalClassName(), "Bear_Rotation: " + CompassManager.getBearingFromRotEvent(event));
+//            Log.i(this.getLocalClassName(), "Bear_Rotation: " + CompassManager.getBearingFromRotEvent(event));
             prevEvt = event;
             avg = true;
             b1 = CompassManager.getBearingFromRotEvent(event);
@@ -327,14 +329,17 @@ public class CompassActivity extends Activity implements SensorEventListener,
         if(CompassManager.isReady() && LocationService.isReady()) {
             CompassManager.setAzimuth();
             b2 = CompassManager.getBearing();
-            Log.i(this.getLocalClassName(), "Bear_Azimuth: " + b2);
-            if(!avg) { avg = !avg; }
-            update(b2);
+//            Log.i(this.getLocalClassName(), "Bear_Azimuth: " + b2);
+            if(!avg) {
+                avg = !avg;
+            }
+//            update(b2);
+//            update();
         }
 
         if(avg && prevEvt != null) {
-            Log.i(this.getLocalClassName(), "Bear_Avg: " + ((b1 + b2) / 2));
-//            update(CompassManager.getBearingFromAvg(b1, b2));
+//            Log.i(this.getLocalClassName(), "Bear_Avg: " + ((b1 + b2) / 2));
+            update(CompassManager.getBearingFromAvg(b1, b2));
         }
 
     }
@@ -408,6 +413,9 @@ public class CompassActivity extends Activity implements SensorEventListener,
                 .target(LocationService.currLocToLatLng())
                 .build();
         this.changeCamera(CameraUpdateFactory.newCameraPosition(pos), null);
+        if(!(isCurrentLocDisplayed() && isTargLocDisplayed())) {
+            this.mMap.animateCamera(CameraUpdateFactory.zoomOut());
+        }
     }
 
     /**
@@ -435,10 +443,6 @@ public class CompassActivity extends Activity implements SensorEventListener,
         }
         else {
             Log.i(this.getLocalClassName(), "Points of interest not captured");
-            while(!(isCurrentLocDisplayed() && isTargLocDisplayed())) {
-                this.mMap.animateCamera(CameraUpdateFactory.zoomOut());
-            }
-
         }
     }
 

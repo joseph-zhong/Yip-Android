@@ -32,4 +32,14 @@
         android:id="@+id/yipAnAddress"
         android:layout_below="@+id/yipAFriend"
         android:layout_centerHorizontal="true" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:text="Warming Up... :)"
+        android:id="@+id/warm_up_label"
+        android:layout_above="@+id/rememberLocation"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="56dp" />
 </RelativeLayout>

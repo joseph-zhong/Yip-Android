@@ -12,6 +12,7 @@ import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -51,6 +52,10 @@ public class MainActivity extends Activity implements
     /** API Client */
     private GoogleApiClient mGoogleApiClient;
 
+    private Button yipAFriendBtn;
+    private Button yipAnAddressBtn;
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -63,15 +68,19 @@ public class MainActivity extends Activity implements
         }
     }
 
+    /** Helper to initialize elements */
     private void initElements() {
-        Button yipAFriendBtn = (Button) findViewById(R.id.yipAFriend);
+        yipAFriendBtn = (Button) findViewById(R.id.yipAFriend);
         yipAFriendBtn.setOnClickListener(yipAFriendListener);
+        yipAFriendBtn.setVisibility(View.INVISIBLE);
 
-        Button yipAnAddressBtn = (Button) findViewById(R.id.yipAnAddress);
+        yipAnAddressBtn = (Button) findViewById(R.id.yipAnAddress);
         yipAnAddressBtn.setOnClickListener(yipAnAddressListener);
+        yipAnAddressBtn.setVisibility(View.INVISIBLE);
 
-        Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
-        rememberLocationBtn.setOnClickListener(rememberLocationListener);
+//        Button rememberLocationBtn = (Button) findViewById(R.id.rememberLocation);
+//        rememberLocationBtn.setOnClickListener(rememberLocationListener);
+//        rememberLocationBtn.setVisibility(View.INVISIBLE);
 
         buildGoogleApiClient();
     }
@@ -199,6 +208,11 @@ public class MainActivity extends Activity implements
         Log.i(this.getClass().getSimpleName(), "Location set: "
                 + location.getLatitude() + " " + location.getLongitude());
         LocationService.currentLocation = location;
+
+        yipAFriendBtn.setVisibility(View.VISIBLE);
+        yipAnAddressBtn.setVisibility(View.VISIBLE);
+        TextView warmUpLabel = (TextView) findViewById(R.id.warm_up_label);
+        warmUpLabel.setVisibility(View.INVISIBLE);
     }
 
     @Override
